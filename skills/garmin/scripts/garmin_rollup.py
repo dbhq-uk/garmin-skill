@@ -95,7 +95,7 @@ def _format_activity_summary(act: dict) -> str:
         line += f", {distance}"
     te = act.get("aerobicTrainingEffect")
     if te:
-        line += f", TE {te}"
+        line += f", TE {round(te, 1)}"
 
     return line
 
@@ -144,7 +144,14 @@ def generate_weekly_markdown(
 
     # Add training metrics to highlights
     if training_status:
-        vo2 = training_status.get("mostRecentVO2Max")
+        vo2_data = training_status.get("mostRecentVO2Max") or training_status.get("mostRecentVO2MaxRunning")
+        if isinstance(vo2_data, dict):
+            generic = vo2_data.get("generic") or {}
+            vo2 = generic.get("vo2MaxPreciseValue") or generic.get("vo2MaxValue")
+        elif isinstance(vo2_data, (int, float)):
+            vo2 = vo2_data
+        else:
+            vo2 = None
         load = training_status.get("weeklyTrainingLoad")
         if load:
             highlights.append(f"**Training load:** {load}")

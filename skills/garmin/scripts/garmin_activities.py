@@ -81,9 +81,9 @@ def format_activities(activities: list[dict]) -> str:
         if calories:
             details.append(f"Calories: {int(calories)}")
         if aero_te is not None:
-            te_str = f"Training Effect: Aerobic {aero_te}"
+            te_str = f"Training Effect: Aerobic {round(aero_te, 1)}"
             if anaero_te is not None:
-                te_str += f" / Anaerobic {anaero_te}"
+                te_str += f" / Anaerobic {round(anaero_te, 1)}"
             details.append(te_str)
 
         for d in details:
@@ -112,13 +112,23 @@ def format_training_status(
     readiness = None
 
     if training_status:
-        vo2 = training_status.get("mostRecentVO2Max") or training_status.get("mostRecentVO2MaxRunning")
+        # VO2 Max is nested: {generic: {vo2MaxValue: 40.0}, cycling: ...}
+        vo2_data = training_status.get("mostRecentVO2Max") or training_status.get("mostRecentVO2MaxRunning")
+        if isinstance(vo2_data, dict):
+            generic = vo2_data.get("generic") or {}
+            vo2 = generic.get("vo2MaxPreciseValue") or generic.get("vo2MaxValue")
+        elif isinstance(vo2_data, (int, float)):
+            vo2 = vo2_data
         load = training_status.get("weeklyTrainingLoad")
         status_raw = training_status.get("trainingStatusFeedbackPhrase")
         status = status_raw.replace("_", " ").title() if status_raw else None
 
     if training_readiness:
-        readiness = training_readiness.get("score")
+        # API may return a list of readiness entries or a single dict
+        if isinstance(training_readiness, list) and training_readiness:
+            readiness = training_readiness[0].get("score")
+        elif isinstance(training_readiness, dict):
+            readiness = training_readiness.get("score")
 
     lines = [
         "## Training Status",
