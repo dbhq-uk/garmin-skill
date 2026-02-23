@@ -94,15 +94,25 @@ def get_client(
         except Exception:
             pass  # Fall through to credential login
 
-    # Credential-based login
-    garmin = Garmin(
-        email=config["email"],
-        password=config["password"],
-        is_cn=False,
-    )
-    garmin.login()
-    garmin.garth.dump(str(token_path))
-    return garmin
+    # Credential-based login (requires MFA if account has it enabled)
+    # If MFA is needed and we're non-interactive, raise a clear error
+    # directing the user to run garmin_login.py first.
+    try:
+        garmin = Garmin(
+            email=config["email"],
+            password=config["password"],
+            is_cn=False,
+        )
+        garmin.login()
+        garmin.garth.dump(str(token_path))
+        return garmin
+    except EOFError:
+        raise GarminConfigError(
+            "MFA required but running non-interactively.\n"
+            "Run this first to authenticate:\n"
+            "  ~/.claude/skills/garmin/.venv/bin/python "
+            "~/.claude/skills/garmin/scripts/garmin_login.py"
+        )
 
 
 if __name__ == "__main__":
