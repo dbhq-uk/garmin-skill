@@ -1,0 +1,2 @@
+garminconnect>=0.2.20,<1.0
+pytest>=7.0
