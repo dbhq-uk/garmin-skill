@@ -61,24 +61,13 @@ CRED_EOF
 chmod 600 "$CONFIG_FILE"
 echo "Credentials saved to $CONFIG_FILE"
 
-# --- Test login ---
+# --- Test login (supports MFA) ---
 echo ""
 echo "Testing authentication..."
-if "$VENV_DIR/bin/python" -c "
-import json, sys
-from garminconnect import Garmin
-
-config = json.load(open('$CONFIG_FILE'))
-garmin = Garmin(email=config['email'], password=config['password'])
-garmin.login()
-garmin.garth.dump('$CONFIG_DIR/tokens')
-name = garmin.get_full_name()
-print(f'Authenticated as: {name}')
-"; then
+if "$VENV_DIR/bin/python" "$SCRIPT_DIR/garmin_login.py"; then
     echo "Authentication successful!"
 else
     echo "Authentication failed. Check your credentials and try again."
-    echo "If MFA is required, run the test login manually."
     exit 1
 fi
 
