@@ -88,8 +88,14 @@ def format_daily_vitals(
     else:
         bb_str = "No data"
 
-    stress_val = stress.get("overallStressLevel")
-    stress_str = f"Avg {stress_val}" if stress_val else "No data"
+    stress_val = stress.get("avgStressLevel") or stress.get("overallStressLevel")
+    max_stress = stress.get("maxStressLevel")
+    if stress_val:
+        stress_str = f"Avg {stress_val}"
+        if max_stress:
+            stress_str += f", Max {max_stress}"
+    else:
+        stress_str = "No data"
 
     steps = stats.get("totalSteps")
     steps_str = f"{steps:,}" if steps else "No data"
@@ -143,7 +149,7 @@ def extract_day_summary(cdate: str, data: dict) -> dict:
         "hrv": hrv_val,
         "body_battery_peak": bb_peak,
         "steps": stats.get("totalSteps"),
-        "stress_avg": stress.get("overallStressLevel"),
+        "stress_avg": stress.get("avgStressLevel") or stress.get("overallStressLevel"),
     }
 
 
