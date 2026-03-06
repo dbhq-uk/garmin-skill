@@ -34,6 +34,7 @@ def generate_daily_markdown(
     activities: list[dict],
     training_status: dict | None,
     training_readiness: dict | None,
+    units: str = "imperial",
 ) -> str:
     """Generate a complete daily markdown snapshot.
 
@@ -67,7 +68,7 @@ def generate_daily_markdown(
     sections.append("")
 
     # Activities
-    acts = format_activities(activities)
+    acts = format_activities(activities, units)
     sections.append(acts)
     sections.append("")
 
@@ -131,6 +132,7 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    units = config.get("units", "imperial")
     cdate = resolve_date(args.date)
     print(f"Fetching Garmin data for {cdate}...")
 
@@ -153,6 +155,7 @@ def main():
         activities=activities,
         training_status=training_status,
         training_readiness=training_readiness,
+        units=units,
     )
 
     file_path = write_snapshot(cdate, markdown, output_dir=args.output_dir)

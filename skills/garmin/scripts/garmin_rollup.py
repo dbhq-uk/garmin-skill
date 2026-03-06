@@ -74,7 +74,7 @@ def find_highlights(day_summaries: list[dict], activities: list[dict]) -> list[s
     return highlights
 
 
-def _format_activity_summary(act: dict) -> str:
+def _format_activity_summary(act: dict, units: str = "imperial") -> str:
     """Format a single activity as a one-line summary for the weekly view."""
     name = act.get("activityName", "Unknown")
     duration = _format_duration_mins(act.get("duration"))
@@ -90,7 +90,7 @@ def _format_activity_summary(act: dict) -> str:
             pass
 
     line = f"- {day_str}: {name} \u2014 {duration}"
-    distance = _format_distance(act.get("distance"))
+    distance = _format_distance(act.get("distance"), units)
     if distance:
         line += f", {distance}"
     te = act.get("aerobicTrainingEffect")
@@ -107,6 +107,7 @@ def generate_weekly_markdown(
     activities: list[dict],
     training_status: dict | None,
     training_readiness: dict | None,
+    units: str = "imperial",
 ) -> str:
     """Generate a complete weekly rollup markdown file.
 
@@ -133,7 +134,7 @@ def generate_weekly_markdown(
     if activities:
         sections.append(f"## Activities ({len(activities)} sessions)")
         for act in activities:
-            sections.append(_format_activity_summary(act))
+            sections.append(_format_activity_summary(act, units))
     else:
         sections.append("## Activities")
         sections.append("No activities recorded this week.")
@@ -234,6 +235,7 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    units = config.get("units", "imperial")
     year, week = resolve_week(args.week)
     dates = get_week_dates(year, week)
     print(f"Generating rollup for {year}-W{week:02d} ({dates[0]} to {dates[-1]})...")
@@ -261,6 +263,7 @@ def main():
         activities=activities,
         training_status=training_status,
         training_readiness=training_readiness,
+        units=units,
     )
 
     file_path = write_rollup(year, week, markdown, output_dir=args.output_dir)

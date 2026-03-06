@@ -29,19 +29,26 @@ def _format_duration_mins(seconds: float | None) -> str:
     return f"{mins} min"
 
 
-def _format_distance(metres: float | None) -> str | None:
-    """Convert metres to km string, or None if no distance."""
+def _format_distance(metres: float | None, units: str = "imperial") -> str | None:
+    """Convert metres to distance string.
+
+    Args:
+        metres: Distance in metres.
+        units: 'imperial' for miles, 'metric' for km.
+    """
     if metres is None or metres <= 0:
         return None
-    km = metres / 1000
-    return f"{km:.1f} km"
+    if units == "metric":
+        return f"{metres / 1000:.1f} km"
+    return f"{metres / 1609.344:.1f} miles"
 
 
-def format_activities(activities: list[dict]) -> str:
+def format_activities(activities: list[dict], units: str = "imperial") -> str:
     """Format a list of activities into readable output.
 
     Args:
         activities: List of activity dicts from Garmin API.
+        units: 'imperial' for miles, 'metric' for km.
 
     Returns:
         Formatted string listing activities.
@@ -53,7 +60,7 @@ def format_activities(activities: list[dict]) -> str:
     for act in activities:
         name = act.get("activityName", "Unknown Activity")
         duration = _format_duration_mins(act.get("duration"))
-        distance = _format_distance(act.get("distance"))
+        distance = _format_distance(act.get("distance"), units)
         avg_hr = act.get("averageHR")
         max_hr = act.get("maxHR")
         calories = act.get("calories")
@@ -182,6 +189,8 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    units = config.get("units", "imperial")
+
     if args.command == "training":
         cdate = date.today().isoformat()
         status, readiness = fetch_training(client, cdate)
@@ -193,7 +202,7 @@ def main():
             print(f"Error: expected a number of days or 'training', got '{args.command}'", file=sys.stderr)
             sys.exit(1)
         activities = fetch_activities(client, days)
-        print(format_activities(activities))
+        print(format_activities(activities, units))
 
 
 if __name__ == "__main__":

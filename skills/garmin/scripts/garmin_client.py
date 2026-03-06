@@ -63,6 +63,9 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> dict:
             f"Missing 'password' in {config_path}. Run setup.sh to reconfigure."
         )
 
+    # Default preferences
+    config.setdefault("units", "imperial")
+
     return config
 
 
