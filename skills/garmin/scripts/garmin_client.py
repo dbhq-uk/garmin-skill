@@ -116,6 +116,13 @@ def get_client(
             "  ~/.claude/skills/garmin/.venv/bin/python "
             "~/.claude/skills/garmin/scripts/garmin_login.py"
         )
+    except Exception:
+        raise GarminConfigError(
+            "Login failed (rate limit or auth error).\n"
+            "Run login to re-authenticate:\n"
+            "  ~/.claude/skills/garmin/.venv/bin/python "
+            "~/.claude/skills/garmin/scripts/garmin_login.py"
+        )
 
 
 if __name__ == "__main__":

@@ -1,2 +1,3 @@
 garminconnect>=0.2.40,<1.0
+garth==0.7.11
 pytest>=7.0
