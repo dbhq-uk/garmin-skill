@@ -2,7 +2,7 @@
 """
 Garmin login with MFA support.
 
-Uses garth's mobile API login flow with a browser-like User-Agent to
+Uses garth's web SSO login flow with a browser-like User-Agent to
 avoid Cloudflare rate limiting on the default mobile app UA.
 
 Usage:
@@ -27,7 +27,7 @@ TOKEN_DIR = os.path.expanduser("~/.garmin/tokens")
 MFA_FILE = "/tmp/garmin_mfa.txt"
 
 # Use a browser UA to avoid Cloudflare rate-limiting garth's default
-# mobile app User-Agent (GCM-iOS-5.22.1.4).
+# mobile app User-Agent.
 CHROME_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -75,10 +75,6 @@ def main():
 
     mfa_code_arg = sys.argv[1] if len(sys.argv) > 1 else None
 
-    # Patch garth's SSO headers to use Chrome UA (bypasses Cloudflare
-    # rate limits that block the default mobile app UA).
-    garth_sso.SSO_PAGE_HEADERS["User-Agent"] = CHROME_UA
-
     client = garth_http.Client()
     client.sess.headers["User-Agent"] = CHROME_UA
 
@@ -111,11 +107,9 @@ def main():
         oauth1, oauth2 = result
 
     # Save tokens
-    client.configure(
-        oauth1_token=oauth1,
-        oauth2_token=oauth2,
-        domain=oauth1.domain,
-    )
+    client = result[1]["client"] if isinstance(result, tuple) else client
+    client.oauth1_token = oauth1
+    client.oauth2_token = oauth2
     client.dump(str(token_path))
 
     # Verify
