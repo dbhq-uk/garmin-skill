@@ -26,9 +26,7 @@ def test_garmin_exposes_client_attribute():
 def test_garmin_has_no_garth_attribute():
     """Guard against reintroducing the 0.2.x .garth call sites."""
     g = Garmin()
-    assert not hasattr(g, "garth"), (
-        "garminconnect exposes .garth again -- reconcile with garmin_client.py"
-    )
+    assert not hasattr(g, "garth"), "garminconnect exposes .garth again -- reconcile with garmin_client.py"
 
 
 def test_garth_client_can_dump_and_load_tokens():

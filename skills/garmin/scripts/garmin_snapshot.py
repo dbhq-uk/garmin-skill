@@ -16,15 +16,15 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from garmin_client import get_client, load_config, GarminConfigError
-from garmin_health import fetch_day_data, format_daily_vitals
-from garmin_sleep import format_sleep_data, fetch_sleep
 from garmin_activities import (
-    format_activities,
-    format_training_status,
     fetch_activities,
     fetch_training,
+    format_activities,
+    format_training_status,
 )
+from garmin_client import GarminConfigError, get_client, load_config
+from garmin_health import fetch_day_data, format_daily_vitals
+from garmin_sleep import fetch_sleep, format_sleep_data
 
 
 def generate_daily_markdown(
@@ -141,10 +141,7 @@ def main():
     sleep_data = fetch_sleep(client, cdate)
     activities_data = fetch_activities(client, days=1)
     # Filter activities to just this date
-    activities = [
-        a for a in activities_data
-        if a.get("startTimeLocal", "").startswith(cdate)
-    ]
+    activities = [a for a in activities_data if a.get("startTimeLocal", "").startswith(cdate)]
     training_status, training_readiness = fetch_training(client, cdate)
 
     # Generate and write

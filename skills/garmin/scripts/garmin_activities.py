@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from garmin_client import get_client, load_config, GarminConfigError
+from garmin_client import GarminConfigError, get_client, load_config
 
 
 def _format_duration_mins(seconds: float | None) -> str:

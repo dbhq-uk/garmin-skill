@@ -1,12 +1,11 @@
 """Tests for garmin_activities.py - activities and training formatting."""
 
-import pytest
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from garmin_activities import format_activities, format_training_status
-
 
 MOCK_ACTIVITIES = [
     {

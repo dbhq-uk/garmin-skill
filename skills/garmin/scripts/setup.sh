@@ -46,7 +46,7 @@ chmod 700 "$CONFIG_DIR"
 if [ -f "$CONFIG_FILE" ]; then
     echo ""
     echo "Existing credentials found at $CONFIG_FILE"
-    read -p "Overwrite? (y/N): " overwrite
+    read -r -p "Overwrite? (y/N): " overwrite
     if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
         echo "Keeping existing credentials."
         echo ""
@@ -57,8 +57,8 @@ fi
 
 echo ""
 echo "Enter your Garmin Connect credentials:"
-read -p "Email: " email
-read -s -p "Password: " password
+read -r -p "Email: " email
+read -r -s -p "Password: " password
 echo ""
 
 cat > "$CONFIG_FILE" <<CRED_EOF

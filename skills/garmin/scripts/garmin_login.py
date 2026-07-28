@@ -29,9 +29,7 @@ MFA_FILE = "/tmp/garmin_mfa.txt"
 # Use a browser UA to avoid Cloudflare rate-limiting garth's default
 # mobile app User-Agent.
 CHROME_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/131.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
 
 
@@ -48,10 +46,7 @@ def _get_mfa_code(mfa_code_arg: str | None) -> str:
         mfa_path.unlink(missing_ok=True)
         if code:
             return code
-    print(
-        f"MFA required. Write the code to {MFA_FILE} "
-        f"(waiting up to 300s)..."
-    )
+    print(f"MFA required. Write the code to {MFA_FILE} (waiting up to 300s)...")
     deadline = time.time() + 300
     while time.time() < deadline:
         if mfa_path.exists():
@@ -84,9 +79,7 @@ def main():
     max_retries = 5
     for attempt in range(max_retries):
         try:
-            result = garth_sso.login(
-                email, password, client=client, return_on_mfa=True
-            )
+            result = garth_sso.login(email, password, client=client, return_on_mfa=True)
             break
         except Exception as e:
             if "429" in str(e) and attempt < max_retries - 1:
@@ -114,6 +107,7 @@ def main():
 
     # Verify
     from garminconnect import Garmin
+
     garmin = Garmin()
     garmin.client.load(str(token_path))
     name = garmin.get_full_name()

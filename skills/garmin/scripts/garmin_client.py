@@ -23,13 +23,13 @@ from pathlib import Path
 
 from garminconnect import Garmin
 
-
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.garmin/config.json")
 DEFAULT_TOKEN_DIR = os.path.expanduser("~/.garmin/tokens")
 
 
 class GarminConfigError(Exception):
     """Raised when Garmin configuration is invalid or missing."""
+
     pass
 
 
@@ -39,6 +39,7 @@ class GarminAuthError(GarminConfigError):
     Subclasses GarminConfigError so existing `except GarminConfigError`
     handlers in the CLI scripts catch it unchanged.
     """
+
     pass
 
 
@@ -48,13 +49,11 @@ class GarminFetchError(Exception):
     Distinct from "Garmin has no data for this day", which is a None return.
     Callers that write files must abort on this rather than archive an empty day.
     """
+
     pass
 
 
-RELOGIN_COMMAND = (
-    "  ~/.claude/skills/garmin/.venv/bin/python "
-    "~/.claude/skills/garmin/scripts/garmin_login.py"
-)
+RELOGIN_COMMAND = "  ~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_login.py"
 
 
 def read_refresh_expiry(token_dir: str = DEFAULT_TOKEN_DIR) -> datetime | None:
@@ -94,24 +93,14 @@ def describe_auth_failure(token_dir: str, exc: Exception) -> str:
     expiry = read_refresh_expiry(token_dir)
 
     if expiry is None:
-        return (
-            "Not authenticated: no usable Garmin tokens found.\n"
-            "Log in to authenticate:\n"
-            f"{RELOGIN_COMMAND}"
-        )
+        return f"Not authenticated: no usable Garmin tokens found.\nLog in to authenticate:\n{RELOGIN_COMMAND}"
 
     if expiry < datetime.now():
         return (
-            f"Garmin tokens expired on {expiry.date().isoformat()}.\n"
-            "Log in again to refresh them:\n"
-            f"{RELOGIN_COMMAND}"
+            f"Garmin tokens expired on {expiry.date().isoformat()}.\nLog in again to refresh them:\n{RELOGIN_COMMAND}"
         )
 
-    return (
-        f"Could not resume Garmin session: {exc}\n"
-        "Log in again to refresh your tokens:\n"
-        f"{RELOGIN_COMMAND}"
-    )
+    return f"Could not resume Garmin session: {exc}\nLog in again to refresh your tokens:\n{RELOGIN_COMMAND}"
 
 
 def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> dict:
@@ -128,22 +117,15 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> dict:
     """
     path = Path(config_path)
     if not path.exists():
-        raise GarminConfigError(
-            f"Config file not found: {config_path}\n"
-            f"Run setup.sh to configure credentials."
-        )
+        raise GarminConfigError(f"Config file not found: {config_path}\nRun setup.sh to configure credentials.")
 
     with open(path) as f:
         config = json.load(f)
 
     if "email" not in config or not config["email"]:
-        raise GarminConfigError(
-            f"Missing 'email' in {config_path}. Run setup.sh to reconfigure."
-        )
+        raise GarminConfigError(f"Missing 'email' in {config_path}. Run setup.sh to reconfigure.")
     if "password" not in config or not config["password"]:
-        raise GarminConfigError(
-            f"Missing 'password' in {config_path}. Run setup.sh to reconfigure."
-        )
+        raise GarminConfigError(f"Missing 'password' in {config_path}. Run setup.sh to reconfigure.")
 
     # Default preferences
     config.setdefault("units", "imperial")
