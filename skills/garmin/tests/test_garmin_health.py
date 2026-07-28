@@ -1,15 +1,12 @@
 """Tests for garmin_health.py - daily vitals formatting."""
 
-import pytest
-from unittest.mock import MagicMock
-from datetime import date
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from garmin_health import format_daily_vitals, format_weekly_vitals
-
 
 # Realistic mock data matching Garmin API response shapes
 MOCK_STATS = {

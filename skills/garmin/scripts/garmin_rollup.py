@@ -17,14 +17,13 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from garmin_client import get_client, load_config, GarminConfigError
-from garmin_health import fetch_day_data, extract_day_summary, format_weekly_vitals
 from garmin_activities import (
-    format_training_status,
-    fetch_training,
-    _format_duration_mins,
     _format_distance,
+    _format_duration_mins,
+    fetch_training,
 )
+from garmin_client import GarminConfigError, get_client, load_config
+from garmin_health import extract_day_summary, fetch_day_data, format_weekly_vitals
 
 
 def get_week_dates(year: int, week: int) -> list[str]:

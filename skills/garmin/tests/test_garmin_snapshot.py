@@ -1,13 +1,11 @@
 """Tests for garmin_snapshot.py - daily markdown file generation."""
 
-import pytest
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from garmin_snapshot import generate_daily_markdown, write_snapshot
-
 
 # Reuse mock data structures
 MOCK_HEALTH = {

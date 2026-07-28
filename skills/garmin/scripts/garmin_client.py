@@ -23,7 +23,6 @@ from pathlib import Path
 
 from garminconnect import Garmin
 
-
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.garmin/config.json")
 DEFAULT_TOKEN_DIR = os.path.expanduser("~/.garmin/tokens")
 

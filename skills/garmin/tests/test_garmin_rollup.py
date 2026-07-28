@@ -1,16 +1,15 @@
 """Tests for garmin_rollup.py - weekly rollup markdown generation."""
 
-import pytest
 import sys
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from garmin_rollup import (
+    find_highlights,
     generate_weekly_markdown,
     get_week_dates,
-    find_highlights,
     write_rollup,
 )
 
