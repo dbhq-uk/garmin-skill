@@ -115,7 +115,7 @@ def main():
     # Verify
     from garminconnect import Garmin
     garmin = Garmin()
-    garmin.garth.load(str(token_path))
+    garmin.client.load(str(token_path))
     name = garmin.get_full_name()
     print(f"Authenticated as: {name}")
     print(f"Tokens saved to {TOKEN_DIR}")

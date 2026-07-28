@@ -57,6 +57,12 @@ class TestFormatActivities:
         assert "Morning Run" in result
         assert "58 min" in result
         assert "152 bpm" in result
+        # imperial is the default across the skill (config falls back to it),
+        # so 5200 m renders as miles here, not km.
+        assert "3.2 miles" in result
+
+    def test_formats_distance_in_metric_when_requested(self):
+        result = format_activities(MOCK_ACTIVITIES, units="metric")
         assert "5.2 km" in result
 
     def test_handles_empty_list(self):
