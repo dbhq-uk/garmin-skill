@@ -19,6 +19,15 @@ fi
 PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 echo "Python version: $PYTHON_VERSION"
 
+# garminconnect 0.3.x declares Requires-Python >=3.12, so pip cannot resolve the
+# pin in requirements.txt below that. Stop here with the reason, rather than
+# provisioning a venv and then failing inside pip's resolver output.
+if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)"; then
+    echo "Error: Python 3.12+ required, found $PYTHON_VERSION"
+    echo "  garminconnect 0.3.x does not support older versions."
+    exit 1
+fi
+
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating virtual environment..."
     python3 -m venv "$VENV_DIR"
