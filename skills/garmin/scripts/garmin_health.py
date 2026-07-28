@@ -194,7 +194,7 @@ def format_weekly_vitals(days: list[dict]) -> str:
             if v is None:
                 cells.append("-")
             elif fmt == "k":
-                cells.append(f"{v/1000:.1f}k")
+                cells.append(f"{v / 1000:.1f}k")
             else:
                 cells.append(str(v))
 
@@ -202,7 +202,7 @@ def format_weekly_vitals(days: list[dict]) -> str:
         numeric = [v for v in values if v is not None]
         if numeric:
             avg = sum(numeric) / len(numeric)
-            avg_str = f"{avg/1000:.1f}k" if fmt == "k" else str(round(avg))
+            avg_str = f"{avg / 1000:.1f}k" if fmt == "k" else str(round(avg))
         else:
             avg_str = "-"
 
@@ -253,13 +253,15 @@ def main():
     else:
         cdate = resolve_date(args.command)
         data = fetch_day_data(client, cdate)
-        print(format_daily_vitals(
-            cdate=cdate,
-            stats=data["stats"],
-            hrv=data["hrv"],
-            body_battery=data["body_battery"],
-            stress=data["stress"],
-        ))
+        print(
+            format_daily_vitals(
+                cdate=cdate,
+                stats=data["stats"],
+                hrv=data["hrv"],
+                body_battery=data["body_battery"],
+                stress=data["stress"],
+            )
+        )
 
 
 if __name__ == "__main__":

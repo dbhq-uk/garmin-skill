@@ -13,9 +13,9 @@ MOCK_SLEEP = {
             "overall": {"value": 82},
         },
         "sleepTimeSeconds": 26640,  # 7h 24m
-        "deepSleepSeconds": 4320,   # 1h 12m
-        "lightSleepSeconds": 13680, # 3h 48m
-        "remSleepSeconds": 7560,    # 2h 06m
+        "deepSleepSeconds": 4320,  # 1h 12m
+        "lightSleepSeconds": 13680,  # 3h 48m
+        "remSleepSeconds": 7560,  # 2h 06m
         "awakeSleepSeconds": 1080,  # 18m
         "sleepStartTimestampGMT": 1740182400000,
         "sleepEndTimestampGMT": 1740209040000,
@@ -34,7 +34,7 @@ class TestFormatSleepData:
         assert "1h 12m" in result  # deep
         assert "3h 48m" in result  # light
         assert "2h 06m" in result  # REM
-        assert "18m" in result      # awake
+        assert "18m" in result  # awake
 
     def test_handles_missing_sleep_data(self):
         result = format_sleep_data("2026-02-22", {})

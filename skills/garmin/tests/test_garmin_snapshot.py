@@ -83,10 +83,10 @@ class TestGenerateDailyMarkdown:
             training_status=MOCK_TRAINING_STATUS,
             training_readiness=MOCK_TRAINING_READINESS,
         )
-        assert "58 bpm" in md       # resting HR
-        assert "82" in md           # sleep score
-        assert "HYROX" in md        # activity name
-        assert "44" in md           # VO2 max
+        assert "58 bpm" in md  # resting HR
+        assert "82" in md  # sleep score
+        assert "HYROX" in md  # activity name
+        assert "44" in md  # VO2 max
 
     def test_handles_no_activities(self):
         md = generate_daily_markdown(

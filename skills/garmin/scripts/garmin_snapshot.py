@@ -141,10 +141,7 @@ def main():
     sleep_data = fetch_sleep(client, cdate)
     activities_data = fetch_activities(client, days=1)
     # Filter activities to just this date
-    activities = [
-        a for a in activities_data
-        if a.get("startTimeLocal", "").startswith(cdate)
-    ]
+    activities = [a for a in activities_data if a.get("startTimeLocal", "").startswith(cdate)]
     training_status, training_readiness = fetch_training(client, cdate)
 
     # Generate and write

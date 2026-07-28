@@ -1,6 +1,5 @@
 """Tests for garmin_health.py - daily vitals formatting."""
 
-
 import sys
 from pathlib import Path
 
@@ -86,14 +85,16 @@ class TestFormatWeeklyVitals:
     def test_formats_seven_days(self):
         days = []
         for i in range(7):
-            days.append({
-                "date": f"2026-02-{16+i:02d}",
-                "resting_hr": 56 + i,
-                "hrv": 40 + i,
-                "body_battery_peak": 70 + i,
-                "steps": 7000 + (i * 500),
-                "stress_avg": 30 + i,
-            })
+            days.append(
+                {
+                    "date": f"2026-02-{16 + i:02d}",
+                    "resting_hr": 56 + i,
+                    "hrv": 40 + i,
+                    "body_battery_peak": 70 + i,
+                    "steps": 7000 + (i * 500),
+                    "stress_avg": 30 + i,
+                }
+            )
         result = format_weekly_vitals(days)
         assert "Mon" in result or "Tue" in result  # Day headers present
         assert "Avg" in result  # Average column present
@@ -101,13 +102,15 @@ class TestFormatWeeklyVitals:
 
     def test_handles_partial_week(self):
         """If fewer than 7 days, should still format what's available."""
-        days = [{
-            "date": "2026-02-22",
-            "resting_hr": 58,
-            "hrv": 42,
-            "body_battery_peak": 75,
-            "steps": 8432,
-            "stress_avg": 34,
-        }]
+        days = [
+            {
+                "date": "2026-02-22",
+                "resting_hr": 58,
+                "hrv": 42,
+                "body_battery_peak": 75,
+                "steps": 8432,
+                "stress_avg": 34,
+            }
+        ]
         result = format_weekly_vitals(days)
         assert "58" in result

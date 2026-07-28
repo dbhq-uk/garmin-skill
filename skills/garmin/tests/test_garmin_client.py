@@ -25,10 +25,7 @@ class TestLoadConfig:
 
     def test_loads_valid_config(self, tmp_path):
         config_file = tmp_path / "config.json"
-        config_file.write_text(json.dumps({
-            "email": "test@example.com",
-            "password": "secret123"
-        }))
+        config_file.write_text(json.dumps({"email": "test@example.com", "password": "secret123"}))
         config = load_config(config_path=str(config_file))
         assert config["email"] == "test@example.com"
         assert config["password"] == "secret123"
@@ -156,9 +153,7 @@ RELOGIN_HINT = "garmin_login.py"
 
 def _write_oauth2(token_dir, expires_at):
     token_dir.mkdir(parents=True, exist_ok=True)
-    (token_dir / "oauth2_token.json").write_text(
-        json.dumps({"refresh_token_expires_at": expires_at})
-    )
+    (token_dir / "oauth2_token.json").write_text(json.dumps({"refresh_token_expires_at": expires_at}))
 
 
 class TestReadRefreshExpiry:
