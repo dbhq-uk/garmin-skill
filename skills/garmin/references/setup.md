@@ -16,8 +16,8 @@ it fails part-way, or when you would rather see each step than run one script.
 ```bash
 git clone https://github.com/dbhq-uk/garmin-skill.git
 cd garmin-skill
-./install.sh          # Claude Code: symlinks into ~/.claude/skills
-./install-codex.sh    # Codex: installs into ~/.codex/skills
+./install.sh          # Claude Code: symlinks the skill in, so edits are live
+./install-codex.sh    # Codex: rewrites SKILL.md and links the rest
 ```
 
 ### 2. Create the virtual environment
