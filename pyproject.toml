@@ -1,0 +1,58 @@
+# Tooling config only. This is not a package: the skill is a directory with its
+# own requirements.txt and its own .venv, and nothing here is ever built or
+# published.
+
+[tool.ruff]
+# 3.12 matches the skill's floor, which is set by garminconnect 0.3.x declaring
+# Requires-Python >=3.12 rather than by anything in our own code.
+target-version = "py312"
+
+# Chosen to fit the code as written rather than to force a reflow. The scripts
+# use long f-string status lines; wrapping them would hurt readability to
+# satisfy an arbitrary number.
+line-length = 120
+
+exclude = [".venv", "venv"]
+
+[tool.ruff.lint]
+# Deliberately modest. The job is to stop new rot, not to relitigate working
+# script. Add rules when they earn their keep.
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "W",    # pycodestyle warnings
+]
+
+ignore = [
+    "E501",  # line-too-long: line-length above is advisory for the formatter,
+             # not a hard gate.
+    "B008",  # function call in default argument - not a pattern here, and the
+             # rule misfires on argparse-adjacent helpers.
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test modules load their subject by path, so the sys.path.insert must run
+# before the import. E402 is the correct shape here, not a mistake.
+"**/tests/*.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+# The scripts import each other as flat sibling modules rather than as a
+# package, so isort has no way to tell they are ours. Listed explicitly, or they
+# sort in among garminconnect and garth and the import block stops showing at a
+# glance which lines are the skill and which are the API client.
+known-first-party = [
+    "garmin_activities",
+    "garmin_client",
+    "garmin_health",
+    "garmin_login",
+    "garmin_rollup",
+    "garmin_sleep",
+    "garmin_snapshot",
+]
+
+[tool.ruff.format]
+quote-style = "preserve"

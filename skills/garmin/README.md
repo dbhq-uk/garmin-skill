@@ -12,13 +12,13 @@ Pull health, fitness, and training data from Garmin Connect.
 
 ```bash
 # 1. Run setup (creates venv, installs deps, configures credentials)
-~/.claude/skills/garmin/scripts/setup.sh
+${CLAUDE_SKILL_DIR}/scripts/setup.sh
 
 # 2. Test auth
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_client.py
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_client.py
 
 # 3. Try a query
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_health.py today
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_health.py today
 ```
 
 ## Data Export
@@ -27,10 +27,10 @@ Daily snapshots and weekly rollups write markdown files to any directory you spe
 
 ```bash
 # Daily snapshot
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_snapshot.py --output-dir ./health/garmin
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_snapshot.py --output-dir ./health/garmin
 
 # Weekly rollup
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_rollup.py --output-dir ./health/garmin/weekly
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_rollup.py --output-dir ./health/garmin/weekly
 ```
 
 See SKILL.md for full command reference.

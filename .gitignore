@@ -1,0 +1,28 @@
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Local agent tooling state
+.serena/
+.superpowers/
+
+# Python. Unlike the prose-only skills in this org, these are real: setup.sh
+# builds .venv inside skills/garmin/, which is exactly where SKILL.md expects it
+# and exactly where it must never be committed.
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Credentials live in ~/.garmin, never here. Listed anyway: a stray copy pulled
+# into the repo while debugging is the one way a Garmin password reaches a
+# public commit.
+config.json
+tokens/

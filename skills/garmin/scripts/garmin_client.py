@@ -53,7 +53,14 @@ class GarminFetchError(Exception):
     pass
 
 
-RELOGIN_COMMAND = "  ~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_login.py"
+# Derived from this file's own location rather than hardcoded. The skill can be
+# installed under Claude Code's skills directory, under Codex's, or inside a
+# plugin directory, and this string is printed when someone is already stuck -
+# sending them to a path that does not exist on their machine is the worst
+# moment to be wrong. resolve() rather than absolute(): under the symlink
+# install the real path is the one that works from any shell.
+_SKILL_DIR = Path(__file__).resolve().parent.parent
+RELOGIN_COMMAND = f"  {_SKILL_DIR}/.venv/bin/python {_SKILL_DIR}/scripts/garmin_login.py"
 
 
 def read_refresh_expiry(token_dir: str = DEFAULT_TOKEN_DIR) -> datetime | None:

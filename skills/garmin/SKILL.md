@@ -15,7 +15,7 @@ Query Garmin Connect for health metrics, sleep data, activities, and training st
 ### First-Time Setup
 
 ```bash
-~/.claude/skills/garmin/scripts/setup.sh
+${CLAUDE_SKILL_DIR}/scripts/setup.sh
 ```
 
 ## Re-Login (Token Refresh)
@@ -23,7 +23,7 @@ Query Garmin Connect for health metrics, sleep data, activities, and training st
 If authentication fails (expired tokens, rate limits), re-login:
 
 ```bash
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_login.py
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_login.py
 ```
 
 Supports MFA interactively or via argument (`garmin_login.py 123456`).
@@ -34,7 +34,7 @@ When run non-interactively, writes MFA code path to `/tmp/garmin_mfa.txt`.
 ### Today's Vitals
 
 ```bash
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_health.py today
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_health.py today
 ```
 
 Returns: Resting HR, HRV, Body Battery, stress, steps, calories.
@@ -42,14 +42,14 @@ Returns: Resting HR, HRV, Body Battery, stress, steps, calories.
 ### Health for a Specific Date
 
 ```bash
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_health.py 2026-02-22
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_health.py yesterday
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_health.py 2026-02-22
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_health.py yesterday
 ```
 
 ### Weekly Vitals Summary
 
 ```bash
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_health.py week
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_health.py week
 ```
 
 Returns: 7-day table of all vitals with averages.
@@ -58,10 +58,10 @@ Returns: 7-day table of all vitals with averages.
 
 ```bash
 # Last night
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_sleep.py
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_sleep.py
 
 # Specific date
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_sleep.py 2026-02-22
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_sleep.py 2026-02-22
 ```
 
 Returns: Sleep score, duration, deep/light/REM/awake breakdown.
@@ -70,10 +70,10 @@ Returns: Sleep score, duration, deep/light/REM/awake breakdown.
 
 ```bash
 # Last 7 days
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_activities.py 7
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_activities.py 7
 
 # Last 30 days
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_activities.py 30
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_activities.py 30
 ```
 
 Returns: Activity list with HR, calories, training effect.
@@ -81,7 +81,7 @@ Returns: Activity list with HR, calories, training effect.
 ### Training Status
 
 ```bash
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_activities.py training
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_activities.py training
 ```
 
 Returns: VO2 max, training load, training readiness, training status.
@@ -94,13 +94,13 @@ Pulls all data for a day and writes to a markdown file:
 
 ```bash
 # Today (output dir is required)
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_snapshot.py --output-dir /path/to/health/garmin
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_snapshot.py --output-dir /path/to/health/garmin
 
 # Specific date
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_snapshot.py --output-dir /path/to/health/garmin 2026-02-22
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_snapshot.py --output-dir /path/to/health/garmin 2026-02-22
 
 # Yesterday
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_snapshot.py --output-dir /path/to/health/garmin yesterday
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_snapshot.py --output-dir /path/to/health/garmin yesterday
 ```
 
 Output: `<output-dir>/YYYY-MM-DD.md`
@@ -111,13 +111,13 @@ Aggregates a week of data into a weekly summary markdown file:
 
 ```bash
 # Current week
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_rollup.py --output-dir /path/to/health/garmin/weekly
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_rollup.py --output-dir /path/to/health/garmin/weekly
 
 # Last week
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_rollup.py --output-dir /path/to/health/garmin/weekly last
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_rollup.py --output-dir /path/to/health/garmin/weekly last
 
 # Specific week
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_rollup.py --output-dir /path/to/health/garmin/weekly 2026-W08
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_rollup.py --output-dir /path/to/health/garmin/weekly 2026-W08
 ```
 
 Output: `<output-dir>/YYYY-WXX.md`
@@ -153,5 +153,5 @@ Claude runs the relevant on-demand query and returns formatted results.
 ## Test Auth
 
 ```bash
-~/.claude/skills/garmin/.venv/bin/python ~/.claude/skills/garmin/scripts/garmin_client.py
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_client.py
 ```

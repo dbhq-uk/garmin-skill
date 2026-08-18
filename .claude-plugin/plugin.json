@@ -1,0 +1,22 @@
+{
+  "name": "garmin",
+  "description": "Garmin Connect health and fitness data from your agent, for Claude Code and Codex - Body Battery, HRV, resting heart rate, stress, sleep stages and score, activities, VO2 max, training load, training status and training readiness. Answers a question live, or writes a day as a markdown snapshot and a week as a rollup you can keep. Your credentials stay on your machine and the data goes nowhere but Garmin and you.",
+  "version": "1.0.0",
+  "author": {
+    "name": "DBHQ",
+    "email": "dan@dbhq.uk"
+  },
+  "homepage": "https://dbhq.uk",
+  "repository": "https://github.com/dbhq-uk/garmin-skill",
+  "license": "MIT",
+  "keywords": [
+    "garmin",
+    "health",
+    "fitness",
+    "sleep",
+    "hrv",
+    "training-load",
+    "vo2max",
+    "quantified-self"
+  ]
+}

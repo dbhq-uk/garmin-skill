@@ -1,22 +1,38 @@
 # Garmin Skill Manual Setup
 
+`scripts/setup.sh` does all of this for you. This page is the fallback for when
+it fails part-way, or when you would rather see each step than run one script.
+
 ## Prerequisites
 
-- Python 3.10+
-- A Garmin Connect account (same one used in the Garmin Connect app)
+- Python 3.12+. That floor comes from `garminconnect` 0.3.x, which declares
+  `Requires-Python >=3.12`, so pip cannot resolve the pinned dependency below it
+- A Garmin Connect account (the same one you use in the Garmin Connect app)
 
 ## Steps
 
-### 1. Create the virtual environment
+### 1. Install the skill
 
 ```bash
-cd ~/.claude/skills/garmin
+git clone https://github.com/dbhq-uk/garmin-skill.git
+cd garmin-skill
+./install.sh          # Claude Code: symlinks into ~/.claude/skills
+./install-codex.sh    # Codex: installs into ~/.codex/skills
+```
+
+### 2. Create the virtual environment
+
+The venv lives inside the skill directory, so the scripts find it wherever the
+skill is installed.
+
+```bash
+cd skills/garmin
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 ```
 
-### 2. Configure credentials
+### 3. Configure credentials
 
 ```bash
 mkdir -p ~/.garmin
@@ -30,19 +46,13 @@ EOF
 chmod 600 ~/.garmin/config.json
 ```
 
-### 3. Test authentication
+### 4. Test authentication
 
 ```bash
 .venv/bin/python scripts/garmin_client.py
 ```
 
 This should print your name from Garmin Connect. On first login, you may be prompted for an MFA code.
-
-### 4. Create the symlink (if not already done)
-
-```bash
-ln -sf /path/to/claude-skills/garmin ~/.claude/skills/garmin
-```
 
 ## Token Storage
 

@@ -1,0 +1,232 @@
+name: Validate plugin
+
+on:
+  push:
+  pull_request:
+
+# A second push to the same branch cancels the first: CI should report on the
+# newest commit, not queue behind stale ones.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege at the top level so every job inherits it. Nothing here writes
+# to the repo, publishes packages, or comments on PRs.
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate plugin manifest is valid JSON
+        run: jq empty .claude-plugin/plugin.json
+
+      - name: Check shell scripts parse
+        # Root installers included: a syntax error there breaks every install.
+        run: |
+          fail=0
+          while IFS= read -r s; do
+            bash -n "$s" || { echo "Syntax error: $s"; fail=1; }
+          done < <({ find . -maxdepth 1 -name '*.sh'; find skills -name '*.sh'; })
+          exit $fail
+
+      - name: shellcheck
+        # ubuntu-latest ships shellcheck. ./ prefixes so a filename beginning
+        # with a dash could never be read as an option (SC2035).
+        run: shellcheck ./install.sh ./install-codex.sh ./skills/*/scripts/*.sh
+
+      - name: Check SKILL.md frontmatter
+        run: |
+          python3 - <<'PY'
+          import sys, pathlib, re
+          ok = True
+          for skill in sorted(pathlib.Path("skills").glob("*/SKILL.md")):
+              text = skill.read_text(encoding="utf-8")
+              m = re.match(r"^---\n(.*?)\n---", text, re.S)
+              if not m:
+                  print(f"{skill}: missing YAML frontmatter"); ok = False; continue
+              fm = m.group(1)
+              name = re.search(r"^name:\s*(.+)$", fm, re.M)
+              desc = re.search(r"^description:\s*(.+)$", fm, re.M)
+              if not name:
+                  print(f"{skill}: missing 'name'"); ok = False
+              else:
+                  name = name.group(1).strip()
+                  if name != skill.parent.name:
+                      print(f"{skill}: name '{name}' != directory '{skill.parent.name}'"); ok = False
+                  if not re.fullmatch(r"[a-z0-9-]{1,64}", name):
+                      print(f"{skill}: name must be lowercase alphanumeric/hyphen, <=64 chars"); ok = False
+              if not desc:
+                  print(f"{skill}: missing 'description'"); ok = False
+              elif len(desc.group(1).strip()) > 1024:
+                  print(f"{skill}: description exceeds 1024 chars"); ok = False
+          sys.exit(0 if ok else 1)
+          PY
+
+      # The whole install story rests on ${CLAUDE_SKILL_DIR} being substituted.
+      # A hardcoded ~/.claude/skills path works on the author's machine and is
+      # wrong under both a Codex install and a plugin install - which is exactly
+      # the bug this skill carried until it moved here: it lived in a personal
+      # repo, was only ever installed one way, and every path in SKILL.md was
+      # hardcoded. Asserted rather than trusted, because it reappears every time
+      # someone pastes a working command out of their own terminal.
+      - name: No hardcoded install paths
+        run: |
+          if grep -rn '~/\.claude/skills\|\$HOME/\.claude/skills' skills/; then
+            echo "::error::Hardcoded install path found. Use \${CLAUDE_SKILL_DIR} instead."
+            exit 1
+          fi
+          echo "No hardcoded install paths."
+
+      # House style across DBHQ is a plain hyphen. Blockquoted lines are exempt
+      # so a document can quote someone else's prose verbatim.
+      - name: No em dashes in our own prose
+        run: |
+          hits=$(grep -rn $'—' --include='*.md' --include='*.sh' --include='*.py' --include='*.yaml' . \
+                 | grep -v ':[0-9]*:[[:space:]]*>' || true)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo "::error::Em dash found outside a quoted specimen. House style is a plain hyphen."
+            exit 1
+          fi
+          echo "No em dashes outside quoted specimens."
+
+      # No credential may ever be committed. The skill reads ~/.garmin/config.json
+      # at runtime and the repo has no business containing one - but a config
+      # pasted in while debugging is exactly how a Garmin password reaches a
+      # public commit, and .gitignore only helps for paths someone predicted.
+      - name: No credentials in the tree
+        run: |
+          if grep -rniE '"password"[[:space:]]*:[[:space:]]*"[^"]+"' --include='*.json' . ; then
+            echo "::error::A populated password field is committed."
+            exit 1
+          fi
+          echo "No credentials in the tree."
+
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - run: python -m pip install --upgrade pip ruff
+
+      - name: ruff check
+        # Config lives in pyproject.toml.
+        run: ruff check --output-format=github .
+
+      - name: ruff format --check
+        run: ruff format --check .
+
+  tests:
+    name: tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.12 is the floor, and the binding constraint is the dependency rather
+        # than our own code: garminconnect 0.3.3+ declares Requires-Python
+        # >=3.12, so pip cannot even resolve the pin below that. (The scripts'
+        # PEP 604 annotations would independently require 3.10, but that limit
+        # is never the one you hit first.)
+        python-version: ['3.12', '3.13']
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        working-directory: skills/garmin
+        run: |
+          python -m pip install --upgrade pip pytest
+          python -m pip install -r requirements.txt
+
+      - name: Run test suite
+        working-directory: skills/garmin
+        # test_garmin_api_contract.py imports the real garminconnect on purpose.
+        # It exists to catch an upstream auth-surface rename (.garth -> .client),
+        # which mocked tests cannot see because MagicMock invents whatever
+        # attribute it is asked for - that is how the break went unnoticed for
+        # months. Still no network: it only constructs Garmin() and inspects
+        # attributes, and the login assertion fails on the missing tokenstore
+        # before any request.
+        run: python -m pytest tests/ -v -p no:cacheprovider
+
+  installers:
+    name: Installers actually install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      # The installers are how anyone outside the marketplace gets the skill, so
+      # they are exercised rather than assumed. Both run setup.sh, which builds
+      # the venv and then prompts for credentials; stdin is closed here, so the
+      # prompt fails and the installer's own error path is exercised too. The
+      # venv is the half that has to survive that, because the rewritten Codex
+      # SKILL.md names a path inside it.
+      - name: Claude install
+        run: |
+          ./install.sh < /dev/null
+          test -L "$HOME/.claude/skills/garmin" || { echo "not a symlink"; exit 1; }
+          test -f "$HOME/.claude/skills/garmin/SKILL.md" || { echo "SKILL.md missing"; exit 1; }
+          test -x "$HOME/.claude/skills/garmin/.venv/bin/python" || { echo "venv missing"; exit 1; }
+
+      - name: Codex install, and the rewritten paths resolve
+        run: |
+          ./install-codex.sh < /dev/null
+          target="$HOME/.codex/skills/garmin"
+          test -f "$target/SKILL.md" || { echo "SKILL.md missing"; exit 1; }
+          grep -q 'CLAUDE_SKILL_DIR' "$target/SKILL.md" && { echo "variable not substituted"; exit 1; }
+          test -d "$target/references" || { echo "references/ not linked"; exit 1; }
+          test -d "$target/.venv" || { echo ".venv not linked"; exit 1; }
+          # Every path the rewritten SKILL.md names must exist on disk. No
+          # exemptions: setup.sh runs before the link is made precisely so the
+          # venv path is real by the time this check reads it.
+          fail=0
+          while IFS= read -r p; do
+            [ -e "$p" ] || { echo "rewritten path does not exist: $p"; fail=1; }
+          done < <(grep -o "$target[^ \`\"']*" "$target/SKILL.md" | sort -u)
+          exit $fail
+
+      - name: No dangling symlinks after either install
+        run: |
+          found=$(find "$HOME/.claude/skills/garmin/" "$HOME/.codex/skills/garmin/" -xtype l 2>/dev/null || true)
+          if [ -n "$found" ]; then echo "::error::dangling symlinks:"; echo "$found"; exit 1; fi
+          echo "No dangling symlinks."
+
+  # Single required check for branch protection. Adding a job above does not mean
+  # remembering to add it to the protection rule - it only needs listing here.
+  ci-ok:
+    name: CI OK
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - validate
+      - lint
+      - tests
+      - installers
+    steps:
+      - name: Fail if any job did not succeed
+        run: |
+          results='${{ join(needs.*.result, ' ') }}'
+          echo "job results: $results"
+          for r in $results; do
+            [ "$r" = "success" ] || { echo "::error::a job did not succeed"; exit 1; }
+          done

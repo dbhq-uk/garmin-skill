@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Unlike the prose-only skills in this org, this one has real dependencies.
+  # garminconnect tracks an undocumented, unversioned API that Garmin changes
+  # without notice, so falling behind here is not a hygiene issue - it is how
+  # the skill stops working. Grouped into one PR because the pins move together.
+  - package-ecosystem: pip
+    directory: /skills/garmin
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: "deps"
+    groups:
+      garmin:
+        patterns:
+          - "*"
