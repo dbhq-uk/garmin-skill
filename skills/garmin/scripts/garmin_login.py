@@ -22,8 +22,22 @@ from pathlib import Path
 from garth import http as garth_http
 from garth import sso as garth_sso
 
-CONFIG_PATH = os.path.expanduser("~/.garmin/config.json")
-TOKEN_DIR = os.path.expanduser("~/.garmin/tokens")
+def _migrate_legacy_settings() -> None:
+    """One-time migration: settings used to live at ~/.garmin."""
+    new_dir = Path(os.path.expanduser("~/.dbhq/garmin"))
+    old_dir = Path(os.path.expanduser("~/.garmin"))
+    if new_dir.exists() or not old_dir.is_dir():
+        return
+    new_dir.parent.mkdir(mode=0o700, exist_ok=True)
+    os.chmod(new_dir.parent, 0o700)
+    old_dir.rename(new_dir)
+    os.chmod(new_dir, 0o700)
+
+
+_migrate_legacy_settings()
+
+CONFIG_PATH = os.path.expanduser("~/.dbhq/garmin/config.json")
+TOKEN_DIR = os.path.expanduser("~/.dbhq/garmin/tokens")
 MFA_FILE = "/tmp/garmin_mfa.txt"
 
 # Use a browser UA to avoid Cloudflare rate-limiting garth's default

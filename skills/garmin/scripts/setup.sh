@@ -5,8 +5,16 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 VENV_DIR="$SKILL_DIR/.venv"
-CONFIG_DIR="$HOME/.garmin"
+CONFIG_DIR="$HOME/.dbhq/garmin"
 CONFIG_FILE="$CONFIG_DIR/config.json"
+
+# One-time migration: settings used to live at ~/.garmin
+if [ ! -e "$CONFIG_DIR" ] && [ -d "$HOME/.garmin" ]; then
+    mkdir -p "$HOME/.dbhq"
+    chmod 700 "$HOME/.dbhq"
+    mv "$HOME/.garmin" "$CONFIG_DIR"
+    chmod 700 "$CONFIG_DIR"
+fi
 
 echo "=== Garmin Skill Setup ==="
 
@@ -41,7 +49,7 @@ echo "Installing dependencies..."
 
 # --- Credentials ---
 mkdir -p "$CONFIG_DIR"
-chmod 700 "$CONFIG_DIR"
+chmod 700 "$HOME/.dbhq" "$CONFIG_DIR"
 
 if [ -f "$CONFIG_FILE" ]; then
     echo ""

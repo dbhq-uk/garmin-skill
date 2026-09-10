@@ -21,7 +21,7 @@ from garmin_client import (
 
 
 class TestLoadConfig:
-    """Test credential loading from ~/.garmin/config.json."""
+    """Test credential loading from ~/.dbhq/garmin/config.json."""
 
     def test_loads_valid_config(self, tmp_path):
         config_file = tmp_path / "config.json"

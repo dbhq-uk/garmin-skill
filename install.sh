@@ -58,7 +58,7 @@ echo
 # Two things have to exist before the skill works, and they fail independently:
 # the venv, and the credentials. Keying this on credentials alone was the
 # obvious version and the wrong one - reinstalling on a machine that already had
-# ~/.garmin/config.json skipped setup entirely and left no venv, so every
+# ~/.dbhq/garmin/config.json skipped setup entirely and left no venv, so every
 # command failed on a missing interpreter with nothing pointing at why.
 #
 # setup.sh builds the venv first and handles credentials second, so running it

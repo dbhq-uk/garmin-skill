@@ -60,7 +60,7 @@ Tokens last roughly a year, and rate limits look like auth failures.
 ```bash
 .venv/bin/python scripts/garmin_login.py           # re-login, MFA supported
 .venv/bin/python scripts/garmin_login.py 123456    # or pass the MFA code
-rm -rf ~/.garmin/tokens                            # nuclear option, forces a fresh login
+rm -rf ~/.dbhq/garmin/tokens                            # nuclear option, forces a fresh login
 ```
 
 ## Where the content lives

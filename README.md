@@ -22,7 +22,7 @@ Ask your agent how you slept and get an answer, rather than opening an app to re
 
 **It answers and it archives.** Most integrations do one or the other. A live query returns today's vitals into the conversation; `garmin_snapshot.py` writes a whole day as a markdown file and `garmin_rollup.py` aggregates a week into a summary, both into a directory you name. Those files are yours, in plain text, and they outlive both this skill and your subscription.
 
-**Your credentials never leave your machine.** They sit in `~/.garmin/config.json` at mode 600, the OAuth tokens Garmin issues are cached in `~/.garmin/tokens/`, and the only host anything is sent to is Garmin's. There is no DBHQ service in the middle, no telemetry, and nothing to sign up for.
+**Your credentials never leave your machine.** They sit in `~/.dbhq/garmin/config.json` at mode 600, the OAuth tokens Garmin issues are cached in `~/.dbhq/garmin/tokens/`, and the only host anything is sent to is Garmin's. There is no DBHQ service in the middle, no telemetry, and nothing to sign up for.
 
 **"No data" and "the call failed" are different things, and it treats them differently.** A day Garmin has nothing for renders as "No data" and the file still writes. A fetch that actually failed raises and aborts the write. That distinction sounds pedantic until the alternative bites you: an archive quietly full of empty days, indistinguishable from days you genuinely did not wear the watch.
 

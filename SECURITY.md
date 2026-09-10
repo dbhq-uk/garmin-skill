@@ -24,16 +24,16 @@ deletes anything in your Garmin account.
 
 ### Credentials
 
-- `~/.garmin/config.json` holds your Garmin Connect email and password, written
+- `~/.dbhq/garmin/config.json` holds your Garmin Connect email and password, written
   at mode **600**, in a directory created at mode **700**
-- `~/.garmin/tokens/` holds the OAuth tokens Garmin issues after login. These
+- `~/.dbhq/garmin/tokens/` holds the OAuth tokens Garmin issues after login. These
   are valid for roughly a year and are what the skill uses day to day
 - Nothing is written to the repository, and the password is never logged or
   printed
 
 Garmin Connect has no API-key or personal-access-token concept, so a username
-and password is the only credential available. Delete `~/.garmin/tokens/` to
-force a fresh login; delete `~/.garmin/config.json` to remove the credential
+and password is the only credential available. Delete `~/.dbhq/garmin/tokens/` to
+force a fresh login; delete `~/.dbhq/garmin/config.json` to remove the credential
 entirely.
 
 ### On disk
@@ -56,7 +56,7 @@ one, but it is why the pins move.
 ## Standing position on scanner findings
 
 Automated skill scanners flag the sentence above that names
-`~/.garmin/config.json` as "sensitive file access". That is accurate
+`~/.dbhq/garmin/config.json` as "sensitive file access". That is accurate
 documentation, not a defect, and the remediation such scanners advise -
 owner-only permissions - is already implemented.
 

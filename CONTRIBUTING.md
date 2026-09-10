@@ -44,7 +44,7 @@ Garmin's API exposes a great deal, and not all of it means what its field name s
 
 **Anything that moves data off the machine.** No telemetry, no analytics, no "anonymous usage statistics", no optional sync to a third-party service. The whole trust argument for handing a skill your Garmin password is that the only host it talks to is Garmin's.
 
-**Loosened file modes.** `~/.garmin` is 700 and `config.json` is 600. If a test is awkward because of it, fix the test.
+**Loosened file modes.** `~/.dbhq/garmin` is 700 and `config.json` is 600. If a test is awkward because of it, fix the test.
 
 ## Licence
 
