@@ -23,6 +23,7 @@ from pathlib import Path
 
 from garminconnect import Garmin
 
+
 def _migrate_legacy_settings() -> None:
     """One-time migration: settings used to live at ~/.garmin."""
     new_dir = Path(os.path.expanduser("~/.dbhq/garmin"))

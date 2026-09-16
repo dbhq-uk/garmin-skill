@@ -22,6 +22,7 @@ from pathlib import Path
 from garth import http as garth_http
 from garth import sso as garth_sso
 
+
 def _migrate_legacy_settings() -> None:
     """One-time migration: settings used to live at ~/.garmin."""
     new_dir = Path(os.path.expanduser("~/.dbhq/garmin"))
