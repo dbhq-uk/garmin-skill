@@ -69,6 +69,17 @@ whole skill directory is symlinked untouched, while Codex does not, so its
 Manual, step-by-step setup is in [`skills/garmin/references/setup.md`](skills/garmin/references/setup.md) for when the script fails part-way.
 
 
+## Requirements
+
+**Python 3.12 or newer**, and that floor is the dependency's rather than
+this skill's: `garminconnect` 0.3.x declares `Requires-Python >=3.12`, so
+pip cannot resolve the pin below it. `install.sh` builds a virtualenv inside
+the skill directory, which is what makes the same path correct under a
+Claude install and a Codex one.
+
+A Garmin Connect account - the same one you use in the app. Multi-factor
+authentication is supported, on first login only.
+
 ## Usage
 
 Ask in any session.
@@ -135,6 +146,6 @@ all documented at **[skills.dbhq.uk](https://skills.dbhq.uk)**.
 
 Plus [heliograph](https://skills.dbhq.uk/heliograph/), for a machine you cannot log into.
 
-## License
+## Licence
 
 [MIT](LICENSE) © 2026 DBHQ Consulting Ltd
