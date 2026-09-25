@@ -65,7 +65,7 @@ echo
 # is safe in either case. A non-interactive shell (CI, a piped install) drops out
 # at the credential prompt with the venv already built, which is the half that
 # cannot be filled in later by hand.
-if [ -d "$SKILLS_ROOT/garmin/.venv" ] && [ -f "$HOME/.garmin/config.json" ]; then
+if [ -d "$SKILLS_ROOT/garmin/.venv" ] && [ -f "$HOME/.dbhq/garmin/config.json" ]; then
   echo "Already set up. Re-run setup any time with:"
   echo "  $SKILLS_ROOT/garmin/scripts/setup.sh"
 else

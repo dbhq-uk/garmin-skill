@@ -21,6 +21,13 @@ import garmin_client
 
 
 @pytest.fixture(autouse=True)
+def private_home(tmp_path_factory, monkeypatch):
+    # Anything that looks up the home directory at run time sees an empty one,
+    # never the real one of whoever runs the suite.
+    monkeypatch.setenv("HOME", str(tmp_path_factory.mktemp("home")))
+
+
+@pytest.fixture(autouse=True)
 def private_cooldown_file(tmp_path_factory, monkeypatch):
     # Its own directory, not tmp_path: tests that list tmp_path must not see it.
     path = tmp_path_factory.mktemp("cooldown") / "ratelimited_until"

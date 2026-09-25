@@ -11,8 +11,8 @@ Set the skill up from source with a **live symlink install**, so your edits are 
 ## 1. Clone
 
 ```bash
-git clone https://github.com/dbhq-uk/garmin-skill.git ~/dbhq-garmin
-cd ~/dbhq-garmin
+git clone https://github.com/dbhq-uk/garmin-skill.git
+cd garmin-skill
 ```
 
 ## 2. Install (symlink)
@@ -35,7 +35,7 @@ In Claude Code, ask *"what's my body battery?"* - a working install answers with
 From the shell:
 
 ```bash
-cd ~/dbhq-garmin/skills/garmin
+cd skills/garmin      # from the root of your clone
 .venv/bin/python scripts/garmin_client.py   # prints your name from Garmin Connect
 .venv/bin/python -m pytest tests/ -v        # no network, no account needed
 ```
@@ -55,9 +55,10 @@ After changing a fetch or a formatter, run one real day and compare it against t
 
 ## When authentication starts failing
 
-Read the message first. "Not authenticated" or "Old token format" means log in again. "rate-limiting" means wait, because another login extends the block.
+Read the message first. "Not authenticated" or "Old token format" means log in again. "rate-limiting" means wait, because another login extends the block. If the message does not make it clear, `scripts/garmin_status.py` reads the settings, the tokens and the cooldown from disk and says what to do, without calling Garmin.
 
 ```bash
+.venv/bin/python scripts/garmin_status.py   # offline: what is set up, and what to do next
 .venv/bin/python scripts/garmin_login.py    # log in, in your own terminal; asks for an MFA code if Garmin sends one
 ```
 
@@ -72,10 +73,11 @@ Read the message first. "Not authenticated" or "Old token format" means log in a
 | `skills/garmin/scripts/garmin_activities.py` | Activities, and training status |
 | `skills/garmin/scripts/garmin_snapshot.py` | A day, as a markdown file |
 | `skills/garmin/scripts/garmin_rollup.py` | A week, aggregated |
+| `skills/garmin/scripts/garmin_status.py` | What is set up, read from disk with no network call |
 | `skills/garmin/references/setup.md` | Manual setup, for when `setup.sh` fails part-way |
 
 Adding a metric means adding the fetch, the formatter, a test with a **real captured response**, and a test for the day Garmin has nothing. See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for why the second one is not optional.
 
 ## Working across machines
 
-Editing anything under `~/dbhq-garmin` is live immediately in Claude Code - the skill directory is symlinked whole. For Codex, re-run `./install-codex.sh` after a `SKILL.md` edit. If you develop on more than one machine, `git pull` before you start and `git push` when done. The venv and your credentials are local to each machine and are not in the repository.
+Editing anything in your clone is live immediately in Claude Code - the skill directory is symlinked whole. For Codex, re-run `./install-codex.sh` after a `SKILL.md` edit. If you develop on more than one machine, `git pull` before you start and `git push` when done. The venv and your credentials are local to each machine and are not in the repository.

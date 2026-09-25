@@ -63,27 +63,20 @@ whole skill directory is symlinked untouched, while Codex does not, so its
 
 ### Requirements
 
-- **Python 3.12+.** That floor is `garminconnect`'s, not ours: version 0.3.x declares `Requires-Python >=3.12`, so pip cannot resolve the pinned dependency below it
+- **Python 3.12+.** That floor is `garminconnect`'s, not ours: version 0.3.x declares `Requires-Python >=3.12`, so pip cannot resolve the pinned dependency below it. `install.sh` builds a virtualenv inside the skill directory, which is what makes the same path correct under a Claude install and a Codex one
 - A Garmin Connect account - the same one you use in the app
 
 Manual, step-by-step setup is in [`skills/garmin/references/setup.md`](skills/garmin/references/setup.md) for when the script fails part-way.
 
+### Logging in
 
-## Requirements
-
-**Python 3.12 or newer**, and that floor is the dependency's rather than
-this skill's: `garminconnect` 0.3.x declares `Requires-Python >=3.12`, so
-pip cannot resolve the pin below it. `install.sh` builds a virtualenv inside
-the skill directory, which is what makes the same path correct under a
-Claude install and a Codex one.
-
-A Garmin Connect account - the same one you use in the app. You log in once,
-in your own terminal, with `scripts/garmin_login.py`, which asks for your
-password and does not save it; every other script resumes from the tokens that
-login saves and never logs in itself. If your account has multi-factor
-authentication, Garmin sends a code by email or text
-when the login starts and the script asks for it at the prompt. You only log
-in again if the tokens stop working.
+You log in once, in your own terminal, with `scripts/garmin_login.py`, which
+asks for your password and does not save it; every other script resumes from
+the tokens that login saves and never logs in itself. If your account has
+multi-factor authentication, Garmin sends a code by email or text when the
+login starts and the script asks for it at the prompt. You only log in again
+if the tokens stop working. `scripts/garmin_status.py` tells you whether they
+are there and usable, without calling Garmin.
 
 ## Usage
 
@@ -107,6 +100,7 @@ Ask in any session.
 | VO2 max, training load, readiness, status | `garmin_activities.py training` |
 | A day as markdown | `garmin_snapshot.py --output-dir <dir>` |
 | A week as markdown | `garmin_rollup.py --output-dir <dir>` |
+| Whether it is set up, and what to do if not, with no call to Garmin | `garmin_status.py` |
 
 The full command reference is in [`skills/garmin/SKILL.md`](skills/garmin/SKILL.md).
 

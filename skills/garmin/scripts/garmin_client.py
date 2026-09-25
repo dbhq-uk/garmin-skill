@@ -30,19 +30,27 @@ from garminconnect.exceptions import (
 )
 
 
-def _migrate_legacy_settings() -> None:
-    """One-time migration: settings used to live at ~/.garmin."""
-    new_dir = Path(os.path.expanduser("~/.dbhq/garmin"))
-    old_dir = Path(os.path.expanduser("~/.garmin"))
-    if new_dir.exists() or not old_dir.is_dir():
-        return
+def migrate_legacy_settings() -> bool:
+    """One-time move: settings used to live at ~/.garmin, and now live at ~/.dbhq/garmin.
+
+    load_config() calls this when it reads the default settings file, which
+    every script does first, so whichever script runs first does the move.
+    Never on import: importing this module, as the test suite does, must not
+    move anybody's settings. An existing ~/.dbhq/garmin is never overwritten.
+
+    Returns True if it moved them.
+    """
+    home = Path.home()
+    new_dir = home / ".dbhq" / "garmin"
+    old_dir = home / ".garmin"
+    if new_dir.exists() or new_dir.is_symlink() or not old_dir.is_dir():
+        return False
     new_dir.parent.mkdir(mode=0o700, exist_ok=True)
     os.chmod(new_dir.parent, 0o700)
     old_dir.rename(new_dir)
     os.chmod(new_dir, 0o700)
+    return True
 
-
-_migrate_legacy_settings()
 
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.dbhq/garmin/config.json")
 DEFAULT_TOKEN_DIR = os.path.expanduser("~/.dbhq/garmin/tokens")
@@ -340,6 +348,8 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> dict:
     Raises:
         GarminConfigError: If file missing, not valid JSON, or has no email.
     """
+    if config_path == DEFAULT_CONFIG_PATH:
+        migrate_legacy_settings()
     path = Path(config_path)
     if not path.exists():
         raise GarminConfigError(f"Config file not found: {config_path}\nRun setup.sh to configure credentials.")
