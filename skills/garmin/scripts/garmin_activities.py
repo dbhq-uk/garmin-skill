@@ -6,9 +6,11 @@ Commands:
     python garmin_activities.py 7           # Activities from last 7 days
     python garmin_activities.py 30          # Activities from last 30 days
     python garmin_activities.py training    # Training status (VO2, load, readiness)
+    python garmin_activities.py 7 --json    # The same figures, unformatted, as JSON
 """
 
 import argparse
+import json
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -100,18 +102,27 @@ def format_activities(activities: list[dict], units: str = "imperial") -> str:
     return "\n".join(lines)
 
 
-def format_training_status(
-    training_status: dict | None,
-    training_readiness: dict | None,
-) -> str:
-    """Format training status metrics as a table.
+def activity_values(act: dict) -> dict:
+    """One activity as plain values for --json: seconds, metres, and None where Garmin has nothing."""
+    return {
+        "name": act.get("activityName"),
+        "type": (act.get("activityType") or {}).get("typeKey"),
+        "start_local": act.get("startTimeLocal"),
+        "duration_seconds": act.get("duration"),
+        "distance_metres": act.get("distance"),
+        "average_hr_bpm": act.get("averageHR"),
+        "max_hr_bpm": act.get("maxHR"),
+        "calories_kcal": act.get("calories"),
+        "aerobic_training_effect": act.get("aerobicTrainingEffect"),
+        "anaerobic_training_effect": act.get("anaerobicTrainingEffect"),
+    }
 
-    Args:
-        training_status: Response from get_training_status().
-        training_readiness: Response from get_training_readiness().
 
-    Returns:
-        Formatted string with training metrics table.
+def training_values(training_status: dict | None, training_readiness: dict | list | None) -> dict:
+    """VO2 max, training load, readiness and status, as plain values. None where Garmin has nothing.
+
+    The one place these are read out of Garmin's responses: the table and
+    --json both come from here, so they cannot disagree.
     """
     vo2 = None
     load = None
@@ -137,14 +148,31 @@ def format_training_status(
         elif isinstance(training_readiness, dict):
             readiness = training_readiness.get("score")
 
+    return {"vo2_max": vo2, "training_load": load, "training_readiness": readiness, "training_status": status}
+
+
+def format_training_status(
+    training_status: dict | None,
+    training_readiness: dict | list | None,
+) -> str:
+    """Format training status metrics as a table.
+
+    Args:
+        training_status: Response from get_training_status().
+        training_readiness: Response from get_training_readiness().
+
+    Returns:
+        Formatted string with training metrics table.
+    """
+    values = training_values(training_status, training_readiness)
     lines = [
         "## Training Status",
         "| Metric | Value |",
         "|--------|-------|",
-        f"| VO2 Max | {vo2 if vo2 else 'No data'} |",
-        f"| Training Load | {load if load else 'No data'} |",
-        f"| Training Readiness | {readiness if readiness else 'No data'} |",
-        f"| Training Status | {status if status else 'No data'} |",
+        f"| VO2 Max | {values['vo2_max'] or 'No data'} |",
+        f"| Training Load | {values['training_load'] or 'No data'} |",
+        f"| Training Readiness | {values['training_readiness'] or 'No data'} |",
+        f"| Training Status | {values['training_status'] or 'No data'} |",
     ]
     return "\n".join(lines)
 
@@ -184,6 +212,7 @@ def main():
         "command",
         help="Number of days to look back, or 'training' for training status",
     )
+    parser.add_argument("--json", action="store_true", help="print the figures as JSON, unformatted")
     args = parser.parse_args()
 
     try:
@@ -199,7 +228,10 @@ def main():
         if args.command == "training":
             cdate = date.today().isoformat()
             status, readiness = fetch_training(client, cdate)
-            print(format_training_status(status, readiness))
+            if args.json:
+                print(json.dumps({"date": cdate, **training_values(status, readiness)}, indent=2))
+            else:
+                print(format_training_status(status, readiness))
         else:
             try:
                 days = int(args.command)
@@ -207,7 +239,10 @@ def main():
                 print(f"Error: expected a number of days or 'training', got '{args.command}'", file=sys.stderr)
                 sys.exit(1)
             activities = fetch_activities(client, days)
-            print(format_activities(activities, units))
+            if args.json:
+                print(json.dumps({"activities": [activity_values(a) for a in activities]}, indent=2))
+            else:
+                print(format_activities(activities, units))
     except GarminFetchError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

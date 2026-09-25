@@ -64,3 +64,16 @@ def test_has_when_not_to_use_and_interpretation_rules():
 
 def test_stays_short():
     assert len(_body().split()) <= 500
+
+
+def test_every_flag_it_names_is_one_a_script_defines():
+    flags = set(re.findall(r"(?<![\w-])--[a-z][\w-]*", _body()))
+    assert "--json" in flags
+    for flag in flags:
+        assert f'"{flag}"' in SOURCE, f"SKILL.md names {flag}, which no script defines"
+    for line in SKILL_MD.splitlines():
+        match = re.search(r"\$\{CLAUDE_SKILL_DIR\}/scripts/([\w.]+)(.*)", line)
+        if match:
+            source = (SKILL_DIR / "scripts" / match.group(1)).read_text()
+            for flag in re.findall(r"(?<![\w-])--[a-z][\w-]*", match.group(2).split("#")[0]):
+                assert f'"{flag}"' in source, f"SKILL.md passes {flag} to {match.group(1)}, which does not define it"

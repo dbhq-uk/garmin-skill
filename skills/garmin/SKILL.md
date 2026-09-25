@@ -26,6 +26,7 @@ ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_status.p
 
 - `health`: resting HR, HRV, Body Battery (the day's lowest to highest level, and the latest), stress, steps, calories. `week` is a 7-day table, and takes a few seconds.
 - `training`: VO2 max, training load, readiness, status.
+- `--json` on `health`, `sleep` or `activities`: the same figures, unformatted, with `null` for no data.
 - `snapshot` writes a day to `DIR/YYYY-MM-DD.md` (default today). `rollup` writes an ISO week to `DIR/YYYY-Www.md` (default this week; `last` works). Days after today are left empty and not fetched.
 
 "No data" in a row means Garmin has nothing for that day. It is not an error.

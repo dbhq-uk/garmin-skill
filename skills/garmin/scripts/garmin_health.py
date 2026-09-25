@@ -7,9 +7,11 @@ Commands:
     python garmin_health.py 2026-02-22     # Specific date
     python garmin_health.py yesterday      # Yesterday's vitals
     python garmin_health.py week           # Last 7 days summary table
+    python garmin_health.py today --json   # The same figures, unformatted, as JSON
 """
 
 import argparse
+import json
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -54,7 +56,7 @@ def fetch_day_data(client, cdate: str, body_battery: list | None = None) -> dict
     }
 
 
-def fetch_day_summaries(client, dates: list[str], today: date | None = None) -> list[dict]:
+def fetch_day_summaries(client, dates: list[str], today: date | None = None, summarise=None) -> list[dict]:
     """Day summaries for several dates, fetched one day at a time.
 
     Paced: pause_between_days() runs before every day after the first, and
@@ -65,10 +67,15 @@ def fetch_day_summaries(client, dates: list[str], today: date | None = None) -> 
     shape as a single-day call. The other endpoints have no range form with a
     documented shape, so they stay per day.
 
+    summarise turns (date, day data) into the summary, and defaults to
+    extract_day_summary(), which the weekly table reads. --json passes
+    day_values(), so a day in the week has the same fields as a single day.
+
     Raises:
         GarminFetchError: a call failed, or a cooldown started. The run stops
             there, and no later day is fetched.
     """
+    summarise = summarise or extract_day_summary
     last = (today or date.today()).isoformat()
     past = sorted(d for d in dates if d <= last)
     by_date = {}
@@ -80,12 +87,12 @@ def fetch_day_summaries(client, dates: list[str], today: date | None = None) -> 
     fetched = 0
     for d in dates:
         if d > last:
-            summaries.append(extract_day_summary(d, {}))
+            summaries.append(summarise(d, {}))
             continue
         if fetched:
             pause_between_days()
         data = fetch_day_data(client, d, body_battery=[by_date[d]] if d in by_date else [])
-        summaries.append(extract_day_summary(d, data))
+        summaries.append(summarise(d, data))
         fetched += 1
     return summaries
 
@@ -253,6 +260,35 @@ def extract_day_summary(cdate: str, data: dict) -> dict:
     }
 
 
+def day_values(cdate: str, data: dict) -> dict:
+    """A day's vitals as plain values for --json: numbers unformatted, None for no data.
+
+    HRV is given as Garmin gives it, last night's average and the seven-day
+    average side by side, so neither can be mistaken for the other.
+    """
+    stats = data.get("stats") or {}
+    hrv = data.get("hrv")
+    summary = (hrv.get("hrvSummary") or {}) if isinstance(hrv, dict) else {}
+    stress = data.get("stress") or {}
+    low, high, latest = body_battery_levels(stats, data.get("body_battery") or [])
+    return {
+        "date": cdate,
+        "resting_hr_bpm": stats.get("restingHeartRate"),
+        "hrv": {
+            "last_night_avg_ms": summary.get("lastNightAvg"),
+            "weekly_avg_ms": summary.get("weeklyAvg"),
+            "status": summary.get("status"),
+        },
+        "body_battery": {"lowest": low, "highest": high, "latest": latest},
+        "stress": {
+            "avg": stress.get("avgStressLevel") or stress.get("overallStressLevel"),
+            "max": stress.get("maxStressLevel"),
+        },
+        "steps": stats.get("totalSteps"),
+        "calories_kcal": stats.get("totalKilocalories"),
+    }
+
+
 def format_weekly_vitals(days: list[dict]) -> str:
     """Format multiple days of vitals as a weekly summary table.
 
@@ -333,6 +369,7 @@ def main():
         "command",
         help="'today', 'yesterday', 'week', or a YYYY-MM-DD date",
     )
+    parser.add_argument("--json", action="store_true", help="print the figures as JSON, unformatted")
     args = parser.parse_args()
 
     try:
@@ -346,10 +383,17 @@ def main():
         if args.command == "week":
             today = date.today()
             dates = [(today - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
-            print(format_weekly_vitals(fetch_day_summaries(client, dates, today)))
+            if args.json:
+                days = fetch_day_summaries(client, dates, today, summarise=day_values)
+                print(json.dumps({"days": days}, indent=2))
+            else:
+                print(format_weekly_vitals(fetch_day_summaries(client, dates, today)))
         else:
             cdate = resolve_date(args.command)
             data = fetch_day_data(client, cdate)
+            if args.json:
+                print(json.dumps(day_values(cdate, data), indent=2))
+                return
             print(
                 format_daily_vitals(
                     cdate=cdate,

@@ -6,9 +6,11 @@ Commands:
     python garmin_sleep.py                 # Last night's sleep
     python garmin_sleep.py 2026-02-22      # Sleep for specific date
     python garmin_sleep.py yesterday       # Yesterday's sleep
+    python garmin_sleep.py --json          # The same figures, unformatted, as JSON
 """
 
 import argparse
+import json
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -65,6 +67,21 @@ def format_sleep_data(cdate: str, sleep_data: dict | None) -> str:
     return "\n".join(lines)
 
 
+def sleep_values(cdate: str, sleep_data: dict | None) -> dict:
+    """A night's sleep as plain values for --json: seconds, and None for no data."""
+    dto = (sleep_data or {}).get("dailySleepDTO") or {}
+    score = ((dto.get("sleepScores") or {}).get("overall") or {}).get("value")
+    return {
+        "date": cdate,
+        "score": score,
+        "duration_seconds": dto.get("sleepTimeSeconds"),
+        "deep_seconds": dto.get("deepSleepSeconds"),
+        "light_seconds": dto.get("lightSleepSeconds"),
+        "rem_seconds": dto.get("remSleepSeconds"),
+        "awake_seconds": dto.get("awakeSleepSeconds"),
+    }
+
+
 def fetch_sleep(client, cdate: str) -> dict | None:
     """Fetch sleep data from Garmin API.
 
@@ -93,6 +110,7 @@ def main():
         default="today",
         help="'today', 'yesterday', or YYYY-MM-DD (default: today)",
     )
+    parser.add_argument("--json", action="store_true", help="print the figures as JSON, unformatted")
     args = parser.parse_args()
 
     try:
@@ -108,7 +126,10 @@ def main():
     except GarminFetchError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
-    print(format_sleep_data(cdate, sleep_data))
+    if args.json:
+        print(json.dumps(sleep_values(cdate, sleep_data), indent=2))
+    else:
+        print(format_sleep_data(cdate, sleep_data))
 
 
 if __name__ == "__main__":
