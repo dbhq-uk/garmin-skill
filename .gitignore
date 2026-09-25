@@ -21,8 +21,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Credentials live in ~/.garmin, never here. Listed anyway: a stray copy pulled
-# into the repo while debugging is the one way a Garmin password reaches a
-# public commit.
+# Settings and tokens live in ~/.dbhq/garmin, never here. Listed anyway: a
+# stray copy pulled into the repo while debugging is how a token file, or a
+# config.json from a version that still stored the password, reaches a public
+# commit.
 config.json
 tokens/

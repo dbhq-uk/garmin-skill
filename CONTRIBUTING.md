@@ -24,7 +24,7 @@ You need a real Garmin Connect account to run the skill, but not to run the test
 - `ruff check . && ruff format --check .`
 - `cd skills/garmin && .venv/bin/python -m pytest tests/ -v` - all green
 - `shellcheck ./install.sh ./install-codex.sh ./skills/*/scripts/*.sh`
-- `claude plugin validate .`
+- `claude plugin validate .`, if you have Claude Code. It is a local check only; CI does not run it
 - Check one real day's figures against the Garmin Connect app by eye. Nothing automated can do this, and it is the failure that actually ships
 - British English, plain hyphens, no trailing full stops on headings
 

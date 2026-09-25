@@ -104,7 +104,7 @@ jobs:
           fi
           echo "No em dashes outside quoted specimens."
 
-      # No credential may ever be committed. The skill reads ~/.garmin/config.json
+      # No credential may ever be committed. The skill reads ~/.dbhq/garmin/config.json
       # at runtime and the repo has no business containing one - but a config
       # pasted in while debugging is exactly how a Garmin password reaches a
       # public commit, and .gitignore only helps for paths someone predicted.

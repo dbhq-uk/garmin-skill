@@ -21,10 +21,10 @@ ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_activiti
 ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_activities.py training
 ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_snapshot.py --output-dir DIR 2026-02-22
 ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_rollup.py --output-dir DIR 2026-W08
-${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_client.py             # check the saved session
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_status.py             # offline: settings, tokens, cooldown
 ```
 
-- `health`: resting HR, HRV, Body Battery (the day's lowest to highest level, and the latest), stress, steps, calories. `week` is a 7-day table. It fetches a day at a time with a short pause, so it takes several seconds.
+- `health`: resting HR, HRV, Body Battery (the day's lowest to highest level, and the latest), stress, steps, calories. `week` is a 7-day table, and takes a few seconds.
 - `training`: VO2 max, training load, readiness, status.
 - `snapshot` writes a day to `DIR/YYYY-MM-DD.md` (default today). `rollup` writes an ISO week to `DIR/YYYY-Www.md` (default this week; `last` works). Days after today are left empty and not fetched.
 
@@ -36,7 +36,7 @@ ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_client.p
 
 ## When a script fails
 
-The scripts only resume a saved session. None of them logs in. Match the message:
+The scripts only resume a saved session. None of them logs in. If the cause is unclear, run `garmin_status.py`: it never calls Garmin. Match the message:
 
 | Message | What to do |
 |---|---|

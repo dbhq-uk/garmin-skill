@@ -64,6 +64,14 @@ saved session again later, without logging in:
 .venv/bin/python scripts/garmin_client.py
 ```
 
+To see what is set up without calling Garmin at all - the settings, whether
+the tokens are there and readable and when they were last saved, and any
+rate-limit cooldown - run:
+
+```bash
+.venv/bin/python scripts/garmin_status.py
+```
+
 ## Token Storage
 
 The login saves its tokens to `~/.dbhq/garmin/tokens/garmin_tokens.json`, at

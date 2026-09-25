@@ -52,9 +52,8 @@ bash -n install.sh install-codex.sh
 shellcheck ./install.sh ./install-codex.sh ./skills/*/scripts/*.sh
 ruff check . && ruff format --check .
 cd skills/garmin && .venv/bin/python -m pytest tests/ -v
-claude plugin validate .
 ```
 
-CI runs all of that, on Python 3.12 and 3.13, plus both installers end to end.
+CI runs all of that, on Python 3.12 and 3.13, plus both installers end to end. If you have Claude Code, `claude plugin validate .` is a useful extra check before a release, but it is local only: CI does not run it, because it would need a Claude Code install in every runner to check what the manifest step already checks.
 
 What none of it covers is whether the data is **right**. The suite mocks Garmin's responses, so it proves the parsing and the formatting, not that the field you read is the field Garmin means. After changing a fetch or a formatter, run it against a real account and check one day's figures against the Garmin Connect app by eye. Nothing asserts that, and a plausible-looking wrong number is the failure this skill can actually ship.
