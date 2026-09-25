@@ -1,6 +1,8 @@
 """Tests for garmin_client.py - auth and session management."""
 
 import json
+import os
+import stat
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -17,19 +19,21 @@ from garmin_client import (
     get_client,
     load_config,
     remove_legacy_tokens,
+    save_config,
     token_format,
+    update_config,
 )
 
 
 class TestLoadConfig:
-    """Test credential loading from ~/.dbhq/garmin/config.json."""
+    """Test settings loading from ~/.dbhq/garmin/config.json."""
 
     def test_loads_valid_config(self, tmp_path):
         config_file = tmp_path / "config.json"
-        config_file.write_text(json.dumps({"email": "test@example.com", "password": "secret123"}))
+        config_file.write_text(json.dumps({"email": "test@example.com", "units": "metric"}))
         config = load_config(config_path=str(config_file))
         assert config["email"] == "test@example.com"
-        assert config["password"] == "secret123"
+        assert config["units"] == "metric"
 
     def test_raises_on_missing_file(self, tmp_path):
         with pytest.raises(GarminConfigError, match="not found"):
@@ -37,15 +41,77 @@ class TestLoadConfig:
 
     def test_raises_on_missing_email(self, tmp_path):
         config_file = tmp_path / "config.json"
-        config_file.write_text(json.dumps({"password": "secret123"}))
+        config_file.write_text(json.dumps({"units": "metric"}))
         with pytest.raises(GarminConfigError, match="email"):
             load_config(config_path=str(config_file))
 
-    def test_raises_on_missing_password(self, tmp_path):
+    def test_an_email_alone_is_enough(self, tmp_path):
+        """No password is stored, and queries only use tokens, so none is asked for."""
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps({"email": "test@example.com"}))
-        with pytest.raises(GarminConfigError, match="password"):
+        assert load_config(config_path=str(config_file)) == {"email": "test@example.com", "units": "imperial"}
+
+    def test_broken_json_says_so(self, tmp_path):
+        config_file = tmp_path / "config.json"
+        config_file.write_text('{"email": "a@b.c", "password": "pa"ss"}')
+        with pytest.raises(GarminConfigError, match="not valid JSON"):
             load_config(config_path=str(config_file))
+
+
+class TestSaveConfig:
+    """config.json is written at 600 from the first byte, and never holds a password."""
+
+    def test_round_trips_awkward_characters(self, tmp_path):
+        config_file = tmp_path / "config.json"
+        email = 'we"ird\\name@example.com'
+        save_config({"email": email, "units": "metric"}, str(config_file))
+        assert load_config(str(config_file)) == {"email": email, "units": "metric"}
+
+    def test_never_writes_a_password(self, tmp_path):
+        config_file = tmp_path / "config.json"
+        save_config({"email": "a@b.c", "password": "secret"}, str(config_file))
+        assert "secret" not in config_file.read_text()
+
+    def test_file_is_600_before_any_byte_is_written(self, tmp_path, monkeypatch):
+        config_file = tmp_path / "garmin" / "config.json"
+        modes = []
+        real_write = os.write
+
+        def spy_write(fd, data):
+            modes.append(stat.S_IMODE(os.fstat(fd).st_mode))
+            return real_write(fd, data)
+
+        old_umask = os.umask(0)
+        try:
+            monkeypatch.setattr(os, "write", spy_write)
+            save_config({"email": "a@b.c"}, str(config_file))
+        finally:
+            monkeypatch.undo()
+            os.umask(old_umask)
+
+        assert modes and set(modes) == {0o600}
+        assert stat.S_IMODE(config_file.stat().st_mode) == 0o600
+        assert stat.S_IMODE(config_file.parent.stat().st_mode) == 0o700
+        assert sorted(p.name for p in config_file.parent.iterdir()) == ["config.json"]
+
+    def test_update_drops_a_stored_password_and_keeps_the_rest(self, tmp_path):
+        config_file = tmp_path / "config.json"
+        config_file.write_text(json.dumps({"email": "a@b.c", "password": "old", "units": "metric"}))
+        update_config(str(config_file))
+        assert json.loads(config_file.read_text()) == {"email": "a@b.c", "units": "metric"}
+
+    def test_update_with_an_email_replaces_a_broken_file(self, tmp_path):
+        config_file = tmp_path / "config.json"
+        config_file.write_text('{"email": "a@b.c", "password": "pa"ss"}')
+        update_config(str(config_file), email="a@b.c")
+        assert json.loads(config_file.read_text()) == {"email": "a@b.c"}
+
+    def test_update_without_an_email_refuses_a_broken_file(self, tmp_path):
+        config_file = tmp_path / "config.json"
+        config_file.write_text("not json")
+        with pytest.raises(GarminConfigError, match="not valid"):
+            update_config(str(config_file))
+        assert config_file.read_text() == "not json"
 
 
 class TestGetClient:
@@ -59,7 +125,7 @@ class TestGetClient:
         mock_garmin = MagicMock()
         MockGarmin.return_value = mock_garmin
 
-        config = {"email": "test@example.com", "password": "secret123"}
+        config = {"email": "test@example.com"}
         client = get_client(config, token_dir=str(token_dir))
 
         assert client is mock_garmin
@@ -77,7 +143,7 @@ class TestGetClient:
         mock_garmin.login.side_effect = Exception("Username and password are required")
         MockGarmin.return_value = mock_garmin
 
-        config = {"email": "test@example.com", "password": "secret123"}
+        config = {"email": "test@example.com"}
         with pytest.raises(GarminAuthError, match="Old token format"):
             get_client(config, token_dir=str(token_dir))
 
@@ -93,7 +159,7 @@ class TestGetClient:
         MockGarmin.return_value = mock_garmin
 
         with pytest.raises(GarminAuthError, match="Not authenticated"):
-            get_client({"email": "a@b.c", "password": "x"}, token_dir=str(token_dir))
+            get_client({"email": "a@b.c"}, token_dir=str(token_dir))
 
     @patch("garmin_client.Garmin")
     def test_rate_limit_does_not_advise_relogin(self, MockGarmin, tmp_path):
@@ -109,7 +175,7 @@ class TestGetClient:
         MockGarmin.return_value = mock_garmin
 
         with pytest.raises(GarminAuthError) as excinfo:
-            get_client({"email": "a@b.c", "password": "x"}, token_dir=str(token_dir))
+            get_client({"email": "a@b.c"}, token_dir=str(token_dir))
 
         assert "garmin_login.py" not in str(excinfo.value)
 
@@ -122,7 +188,7 @@ class TestGetClient:
         mock_garmin = MagicMock()
         MockGarmin.return_value = mock_garmin
 
-        get_client({"email": "a@b.c", "password": "x"}, token_dir=str(token_dir))
+        get_client({"email": "a@b.c"}, token_dir=str(token_dir))
 
         mock_garmin.client.dump.assert_called_once_with(str(token_dir))
 

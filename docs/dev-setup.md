@@ -24,7 +24,7 @@ cd ~/dbhq-garmin
 
 Any path the skill names uses `${CLAUDE_SKILL_DIR}` (the skill's own directory), which Claude Code substitutes for personal, project and plugin installs alike. So `install.sh` symlinks the **whole skill directory** into `~/.claude/skills/` - `SKILL.md`, `scripts/` and `references/` are all live, and every edit takes effect with no re-run. Codex does not substitute `${CLAUDE_SKILL_DIR}`, so `install-codex.sh` rewrites it to the install path - **re-run `./install-codex.sh` after editing a `SKILL.md`** for Codex.
 
-Both installers build the virtualenv at `skills/garmin/.venv` and then run `scripts/setup.sh`, which asks for your Garmin email and password and logs in with `scripts/garmin_login.py`. If your account has MFA, Garmin sends a code and the login asks for it.
+Both installers build the virtualenv at `skills/garmin/.venv` and then run `scripts/setup.sh`, which asks for your Garmin email and then logs in with `scripts/garmin_login.py`. The login asks for your password and does not save it. If your account has MFA, Garmin sends a code and the login asks for it.
 
 The venv is inside the skill directory rather than somewhere shared, and that is deliberate: `${CLAUDE_SKILL_DIR}/.venv/bin/python` is then the right interpreter under every install shape without a lookup.
 

@@ -22,7 +22,7 @@ Ask your agent how you slept and get an answer, rather than opening an app to re
 
 **It answers and it archives.** Most integrations do one or the other. A live query returns today's vitals into the conversation; `garmin_snapshot.py` writes a whole day as a markdown file and `garmin_rollup.py` aggregates a week into a summary, both into a directory you name. Those files are yours, in plain text, and they outlive both this skill and your subscription.
 
-**Your credentials never leave your machine.** They sit in `~/.dbhq/garmin/config.json` at mode 600, the tokens Garmin issues are cached in `~/.dbhq/garmin/tokens/garmin_tokens.json` at mode 600, and the only host anything is sent to is Garmin's. There is no DBHQ service in the middle, no telemetry, and nothing to sign up for.
+**Your password is never stored, and your credentials never leave your machine.** The login asks for the password, hands it to Garmin and forgets it. `~/.dbhq/garmin/config.json` holds only your email and settings, at mode 600, the tokens Garmin issues are cached in `~/.dbhq/garmin/tokens/garmin_tokens.json` at mode 600, and the only host anything is sent to is Garmin's. There is no DBHQ service in the middle, no telemetry, and nothing to sign up for.
 
 **"No data" and "the call failed" are different things, and it treats them differently.** A day Garmin has nothing for renders as "No data" and the file still writes. A fetch that actually failed - a rate limit, a rejected session, a network error - raises, the script exits non-zero, and nothing is written, so a file already archived for that day stays as it was. That distinction sounds pedantic until the alternative bites you: an archive quietly full of empty days, indistinguishable from days you genuinely did not wear the watch.
 
@@ -78,9 +78,10 @@ the skill directory, which is what makes the same path correct under a
 Claude install and a Codex one.
 
 A Garmin Connect account - the same one you use in the app. You log in once,
-in your own terminal, with `scripts/garmin_login.py`; every other script
-resumes from the tokens that login saves and never logs in itself. If your
-account has multi-factor authentication, Garmin sends a code by email or text
+in your own terminal, with `scripts/garmin_login.py`, which asks for your
+password and does not save it; every other script resumes from the tokens that
+login saves and never logs in itself. If your account has multi-factor
+authentication, Garmin sends a code by email or text
 when the login starts and the script asks for it at the prompt. You only log
 in again if the tokens stop working.
 

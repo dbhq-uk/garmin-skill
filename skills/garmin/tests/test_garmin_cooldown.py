@@ -105,14 +105,14 @@ class TestA429StartsTheCooldown:
 
     def test_on_login(self, tmp_path):
         config = tmp_path.resolve() / "config.json"
-        config.write_text(json.dumps({"email": "test@example.com", "password": "secret"}))
+        config.write_text(json.dumps({"email": "test@example.com"}))
 
         def strategy_chain(self, email, password, prompt_mfa=None, return_on_mfa=False):
             raise GarminConnectTooManyRequestsError("All login strategies rate limited (429).")
 
         with patch.object(Client, "login", strategy_chain):
             with pytest.raises(garmin_client.GarminConfigError):
-                garmin_login.login(str(config), str(tmp_path.resolve() / "tokens"))
+                garmin_login.login(str(config), str(tmp_path.resolve() / "tokens"), password="secret")
 
         assert cooldown_until() is not None
 
@@ -124,10 +124,10 @@ class TestNothingCallsGarminDuringACooldown:
 
     def test_login_makes_no_attempt(self, tmp_path):
         config = tmp_path / "config.json"
-        config.write_text(json.dumps({"email": "test@example.com", "password": "secret"}))
+        config.write_text(json.dumps({"email": "test@example.com"}))
         with patch.object(Client, "login") as strategy_chain:
             with pytest.raises(GarminRateLimitedError):
-                garmin_login.login(str(config), str(tmp_path / "tokens"))
+                garmin_login.login(str(config), str(tmp_path / "tokens"), password="secret")
         strategy_chain.assert_not_called()
 
     @pytest.mark.parametrize(

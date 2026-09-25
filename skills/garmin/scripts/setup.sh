@@ -1,5 +1,5 @@
 #!/bin/bash
-# Set up Garmin skill: credentials + Python venv
+# Set up Garmin skill: Python venv, settings, then one login
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,16 +47,39 @@ echo "Installing dependencies..."
 "$VENV_DIR/bin/pip" install --upgrade pip -q
 "$VENV_DIR/bin/pip" install -r "$SKILL_DIR/requirements.txt" -q
 
-# --- Credentials ---
+# --- Settings ---
+# config.json holds the account email and settings, never the password: the
+# login asks for that, hands it to Garmin and forgets it. The file is written by
+# garmin_client.update_config, which quotes with a JSON encoder (so a quote or a
+# backslash in the email cannot break it) and creates the file at 600 before
+# writing a byte. It also drops a password an earlier version saved here.
 mkdir -p "$CONFIG_DIR"
 chmod 700 "$HOME/.dbhq" "$CONFIG_DIR"
 
+update_config() {
+    "$VENV_DIR/bin/python" - "$SCRIPT_DIR" "$CONFIG_FILE" "$@" <<'PY'
+import sys
+
+sys.path.insert(0, sys.argv[1])
+from garmin_client import GarminConfigError, update_config
+
+settings = {"email": sys.argv[3]} if len(sys.argv) > 3 else {}
+try:
+    update_config(sys.argv[2], **settings)
+except GarminConfigError as exc:
+    sys.exit(f"Error: {exc}")
+PY
+}
+
 if [ -f "$CONFIG_FILE" ]; then
     echo ""
-    echo "Existing credentials found at $CONFIG_FILE"
-    read -r -p "Overwrite? (y/N): " overwrite
+    echo "Existing settings found at $CONFIG_FILE"
+    read -r -p "Change the Garmin email? (y/N): " overwrite
     if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
-        echo "Keeping existing credentials."
+        update_config
+        echo "Keeping existing settings. No password is stored."
+        echo "To log in again, run:"
+        echo "  $VENV_DIR/bin/python $SCRIPT_DIR/garmin_login.py"
         echo ""
         echo "=== Setup Complete ==="
         exit 0
@@ -64,32 +87,27 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 echo ""
-echo "Enter your Garmin Connect credentials:"
-read -r -p "Email: " email
-read -r -s -p "Password: " password
-echo ""
+read -r -p "Garmin Connect email: " email
+update_config "$email"
+echo "Settings saved to $CONFIG_FILE (no password: the login asks for it and does not save it)"
 
-cat > "$CONFIG_FILE" <<CRED_EOF
-{
-  "email": "$email",
-  "password": "$password"
-}
-CRED_EOF
-chmod 600 "$CONFIG_FILE"
-echo "Credentials saved to $CONFIG_FILE"
-
-# --- Test login (supports MFA) ---
+# --- Log in (asks for the password, and an MFA code if Garmin sends one) ---
 echo ""
-echo "Testing authentication..."
+echo "Logging in..."
 if "$VENV_DIR/bin/python" "$SCRIPT_DIR/garmin_login.py"; then
     echo "Authentication successful!"
 else
-    echo "Authentication failed. Check your credentials and try again."
+    # garmin_login.py has already printed why. A wrong password, a rate limit
+    # and a network failure each need something different, so the reason is
+    # left to speak for itself rather than blamed on the credentials.
+    echo "Login did not complete: see the error above." >&2
+    echo "When it is sorted, log in with:" >&2
+    echo "  $VENV_DIR/bin/python $SCRIPT_DIR/garmin_login.py" >&2
     exit 1
 fi
 
 echo ""
 echo "=== Setup Complete ==="
 echo "Virtual environment: $VENV_DIR"
-echo "Credentials: $CONFIG_FILE"
+echo "Settings: $CONFIG_FILE"
 echo "Tokens: $CONFIG_DIR/tokens/"

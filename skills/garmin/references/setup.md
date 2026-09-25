@@ -32,26 +32,26 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Configure credentials
+### 3. Save your email
 
 Upgrading from an older install? Settings used to live at `~/.garmin`; the scripts move that directory to `~/.dbhq/garmin` automatically on first run.
 
+`config.json` holds your Garmin email and settings, never your password. This
+writes it with a JSON encoder, into a file created at 600:
+
 ```bash
-mkdir -p ~/.dbhq/garmin
-chmod 700 ~/.dbhq ~/.dbhq/garmin
-cat > ~/.dbhq/garmin/config.json << 'EOF'
-{
-  "email": "your-garmin-email@example.com",
-  "password": "your-garmin-password"
-}
-EOF
-chmod 600 ~/.dbhq/garmin/config.json
+.venv/bin/python -c 'import sys; sys.path.insert(0, "scripts"); from garmin_client import update_config; update_config(email=sys.argv[1])' 'your-garmin-email@example.com'
 ```
+
+An older install may have saved a password in this file. The command above
+removes it, and so does the next login.
 
 ### 4. Log in
 
-Run this yourself, in a terminal. If your account has multi-factor
-authentication, Garmin sends a code by email or text and the script asks for it.
+Run this yourself, in a terminal. It asks for your Garmin password, or reads it
+from `GARMIN_PASSWORD` if that is set, and does not save it. If your account
+has multi-factor authentication, Garmin sends a code by email or text and the
+script asks for it.
 
 ```bash
 .venv/bin/python scripts/garmin_login.py
@@ -80,9 +80,13 @@ Tokens from before `garminconnect` 0.3 (`oauth1_token.json` and
 Run `scripts/setup.sh` or create `~/.dbhq/garmin/config.json` manually.
 
 ### "Garmin refused the login"
-1. Check your email/password in `~/.dbhq/garmin/config.json`
-2. Try logging into Garmin Connect in a browser to verify credentials
-3. Run `scripts/garmin_login.py` again
+1. Check the email in `~/.dbhq/garmin/config.json`
+2. Try logging into Garmin Connect in a browser to check the password
+3. Run `scripts/garmin_login.py` again and retype the password
+
+### "No password entered"
+The login needs your Garmin password each time it runs, because it is never
+saved. Type it at the prompt, or set `GARMIN_PASSWORD` for that one command.
 
 ### "rate-limiting"
 Garmin is blocking requests from your IP for a while. The message gives a time,
