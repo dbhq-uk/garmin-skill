@@ -101,7 +101,7 @@ Ask in any session.
 | What you get | Command behind it |
 |---|---|
 | Resting HR, HRV, Body Battery, stress, steps, calories | `garmin_health.py today` / `yesterday` / a date |
-| Seven-day table with averages | `garmin_health.py week` |
+| Seven-day table with averages, fetched a day at a time with a short pause | `garmin_health.py week` |
 | Sleep score, duration, deep/light/REM/awake | `garmin_sleep.py` |
 | Activities with HR, calories, training effect | `garmin_activities.py 7` |
 | VO2 max, training load, readiness, status | `garmin_activities.py training` |
