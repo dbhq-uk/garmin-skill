@@ -85,8 +85,11 @@ Run `scripts/setup.sh` or create `~/.dbhq/garmin/config.json` manually.
 3. Run `scripts/garmin_login.py` again
 
 ### "rate-limiting"
-Garmin is blocking logins from your IP for a while. Wait before trying again:
-another attempt extends the block.
+Garmin is blocking requests from your IP for a while. The message gives a time,
+and every script, the login included, refuses to call Garmin before it. The
+time is kept in `~/.dbhq/garmin/ratelimited_until` and the file goes once the
+time has passed. Deleting it early lets the scripts try again sooner, and any
+attempt while Garmin is still blocking extends the block.
 
 ### MFA prompt
 If your account has multi-factor authentication, Garmin sends a code each time

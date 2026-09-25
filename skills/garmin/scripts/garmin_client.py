@@ -18,6 +18,7 @@ Usage as CLI (test auth):
 import json
 import os
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from garminconnect import Garmin
@@ -45,6 +46,16 @@ _migrate_legacy_settings()
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.dbhq/garmin/config.json")
 DEFAULT_TOKEN_DIR = os.path.expanduser("~/.dbhq/garmin/tokens")
 
+# After any 429, this file holds the time before which no script calls Garmin.
+# A module global rather than a default argument, so the one place that points
+# it somewhere else (the test suite) moves it for every caller at once.
+COOLDOWN_FILE = os.path.expanduser("~/.dbhq/garmin/ratelimited_until")
+
+# Garmin does not say how long a block lasts, and its 429s rarely carry a
+# Retry-After. Half an hour is long enough not to extend a block by knocking on
+# it, and short enough that a blip does not cost the afternoon.
+DEFAULT_COOLDOWN = timedelta(minutes=30)
+
 
 class GarminConfigError(Exception):
     """Raised when Garmin configuration is invalid or missing."""
@@ -57,6 +68,16 @@ class GarminAuthError(GarminConfigError):
 
     Subclasses GarminConfigError so existing `except GarminConfigError`
     handlers in the CLI scripts catch it unchanged.
+    """
+
+    pass
+
+
+class GarminRateLimitedError(GarminAuthError):
+    """Raised instead of calling Garmin while a rate-limit cooldown is running.
+
+    Subclasses GarminAuthError, so every script's `except GarminConfigError`
+    already reports it and exits.
     """
 
     pass
@@ -97,6 +118,7 @@ def fetch(fn, *args, **kwargs):
     Raises:
         GarminFetchError: the call itself failed. A caller that writes a file
             must abort rather than write, and a query must say the call failed.
+            A 429 also starts the cooldown, and the message says until when.
     """
     try:
         return fn(*args, **kwargs)
@@ -104,6 +126,8 @@ def fetch(fn, *args, **kwargs):
         if type(exc) is GarminConnectConnectionError and str(exc) == EMPTY_RESPONSE_MESSAGE:
             return None
         name = getattr(fn, "__name__", "Garmin call")
+        if is_rate_limit(exc):
+            raise GarminFetchError(f"{name} failed.\n{rate_limit_message(start_cooldown(exc))}") from exc
         raise GarminFetchError(f"{name} failed: {exc}") from exc
 
 
@@ -155,17 +179,111 @@ def remove_legacy_tokens(token_dir: str = DEFAULT_TOKEN_DIR) -> list[str]:
     return removed
 
 
+def _chain(exc: BaseException | None):
+    """The exception, then whatever caused it, then whatever caused that."""
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        yield exc
+        exc = exc.__cause__ or exc.__context__
+
+
+def is_rate_limit(exc: BaseException) -> bool:
+    """True if Garmin rate-limited the call, anywhere in the exception chain.
+
+    Checked by type, never by message: garminconnect's own 429 on login reads
+    "Too many login attempts. Please wait...", which a match on "429" or "too
+    many requests" misses. And it wraps errors, so a 429 can arrive as the
+    __cause__ of an authentication error.
+    """
+    return any(
+        isinstance(e, GarminConnectTooManyRequestsError)
+        or getattr(getattr(e, "response", None), "status_code", None) == 429
+        for e in _chain(exc)
+    )
+
+
+def _retry_after(exc: BaseException | None) -> timedelta | None:
+    """The wait Garmin asked for in a Retry-After header, if it gave one in seconds."""
+    for e in _chain(exc):
+        headers = getattr(getattr(e, "response", None), "headers", None)
+        value = headers.get("Retry-After") if hasattr(headers, "get") else None
+        if value is not None and str(value).strip().isdigit():
+            return timedelta(seconds=int(str(value).strip()))
+    return None
+
+
+def _format_until(until: datetime) -> str:
+    local = until.astimezone()
+    minutes = max(1, round((until - datetime.now(UTC)).total_seconds() / 60))
+    return f"{local:%Y-%m-%d %H:%M %Z} (about {minutes} min from now)"
+
+
+def cooldown_until() -> datetime | None:
+    """When the current rate-limit cooldown ends, or None if there is none.
+
+    A cooldown that has passed, or a file that cannot be read, is removed so it
+    never blocks anything again.
+    """
+    path = Path(COOLDOWN_FILE)
+    try:
+        until = datetime.fromisoformat(path.read_text().strip())
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError):
+        path.unlink(missing_ok=True)
+        return None
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=UTC)
+    if until <= datetime.now(UTC):
+        path.unlink(missing_ok=True)
+        return None
+    return until
+
+
+def start_cooldown(exc: BaseException | None = None) -> datetime:
+    """Record a 429: no script calls Garmin again until the returned time."""
+    until = datetime.now(UTC) + (_retry_after(exc) or DEFAULT_COOLDOWN)
+    existing = cooldown_until()
+    if existing and existing > until:
+        return existing
+    path = Path(COOLDOWN_FILE)
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(until.isoformat() + "\n")
+    return until
+
+
+def rate_limit_message(until: datetime) -> str:
+    return (
+        "Garmin is rate-limiting this IP (HTTP 429).\n"
+        f"No script will call Garmin again until {_format_until(until)}.\n"
+        "Wait until then. Do not log in again: that extends the block."
+    )
+
+
+def check_cooldown() -> None:
+    """Refuse to go near Garmin while a rate-limit cooldown is running.
+
+    Raises:
+        GarminRateLimitedError: a cooldown is running. The message says until when.
+    """
+    until = cooldown_until()
+    if until is not None:
+        raise GarminRateLimitedError(rate_limit_message(until))
+
+
 def describe_auth_failure(token_dir: str, exc: Exception) -> str:
     """Build an actionable message explaining why a session could not be resumed.
 
     Deliberately does NOT suggest re-login on a 429: a fresh SSO login while
-    rate-limited extends the block rather than clearing it.
+    rate-limited extends the block rather than clearing it. A 429 also starts
+    the cooldown, so the next script waits instead of knocking again.
     """
-    if "429" in str(exc) or "too many requests" in str(exc).lower():
-        return (
-            "Garmin is rate-limiting this IP (HTTP 429).\n"
-            "Wait before retrying. Do not re-run login -- that extends the block."
-        )
+    if is_rate_limit(exc):
+        return rate_limit_message(start_cooldown(exc))
 
     fmt = token_format(token_dir)
 
@@ -236,16 +354,20 @@ def get_client(
         Authenticated Garmin client.
 
     Raises:
+        GarminRateLimitedError: A rate-limit cooldown is running. Garmin is not
+            called at all.
         GarminAuthError: If the session cannot be resumed. The message names the
             actual cause (no tokens / old token format / rate limited).
     """
+    check_cooldown()
     token_path = Path(token_dir)
 
     try:
         garmin = Garmin()
         garmin.login(str(token_path))
     except Exception as exc:
-        raise GarminAuthError(describe_auth_failure(str(token_path), exc)) from exc
+        error = GarminRateLimitedError if is_rate_limit(exc) else GarminAuthError
+        raise error(describe_auth_failure(str(token_path), exc)) from exc
 
     # login() may have refreshed the access token in memory. Persist it so the
     # next run resumes cleanly instead of drifting towards a full re-login.
