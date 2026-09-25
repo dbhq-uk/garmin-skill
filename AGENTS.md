@@ -41,7 +41,7 @@ Everything else here is a preference. These are not.
 
 Garmin Connect has no public API, no versioning and no deprecation notices. `garminconnect` tracks it by reverse engineering, and things get renamed underneath it. Its 0.3 release dropped `garth` altogether and changed the token format, and this skill went on writing garth tokens nothing could read.
 
-This is why `tests/test_garmin_api_contract.py` imports the **real** `garminconnect` rather than a mock. A `MagicMock` invents whatever attribute it is asked for, so a mocked suite stays green through an upstream rename - which is exactly how an auth-surface change (`.garth` -> `.client`) went unnoticed for months. That test constructs `Garmin()` and inspects its actual attributes. It still makes no network call: the login assertion fails on the missing tokenstore before any request is built.
+This is why `tests/test_garmin_api_contract.py` imports the **real** `garminconnect` rather than a mock. A `MagicMock` invents whatever attribute it is asked for, so a mocked suite stays green through an upstream rename - which is exactly how an auth-surface change (`.garth` -> `.client`) went unnoticed for months. That test constructs `Garmin()` and inspects its actual attributes. Attribute names are not enough on their own, so it also writes tokens the way `garmin_login.py` does and checks that garminconnect's own `login(tokenstore)` accepts them, with the token directory at 700 and the file at 600. It still makes no network call: the login strategy chain, the token refresh and the profile fetch are replaced, and the first two fail the test if anything reaches them.
 
 Do not "fix" that test by mocking it. It is the only thing in the suite that can see the failure it exists to catch.
 
