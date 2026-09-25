@@ -36,7 +36,7 @@ Do not run it yourself. It needs a terminal and refuses without one, because Gar
 ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_health.py today
 ```
 
-Returns: Resting HR, HRV, Body Battery, stress, steps, calories.
+Returns: Resting HR, HRV, Body Battery (the day's lowest to highest level, and the latest), stress, steps, calories.
 
 ### Health for a Specific Date
 

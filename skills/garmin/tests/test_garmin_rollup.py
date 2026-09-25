@@ -77,7 +77,33 @@ class TestFindHighlights:
     def test_finds_best_body_battery(self):
         highlights = find_highlights(MOCK_WEEK, MOCK_ACTIVITIES)
         # Best body battery peak is Sunday (84)
-        assert any("84" in h for h in highlights)
+        assert "**Best Body Battery:** Sunday (84)" in highlights
+
+    def test_best_body_battery_comes_from_real_fetched_levels(self):
+        """End to end from raw responses: the peak is the highest level, not "charged"."""
+        from garmin_health import extract_day_summary
+
+        days = [
+            extract_day_summary(
+                "2026-02-16",
+                {
+                    "stats": {"bodyBatteryHighestValue": 70},
+                    "body_battery": [{"charged": 90, "drained": 30}],
+                    "hrv": None,
+                    "stress": {},
+                },
+            ),
+            extract_day_summary(
+                "2026-02-17",
+                {
+                    "stats": {"bodyBatteryHighestValue": 88},
+                    "body_battery": [{"charged": 20, "drained": 50}],
+                    "hrv": None,
+                    "stress": {},
+                },
+            ),
+        ]
+        assert "**Best Body Battery:** Tuesday (88)" in find_highlights(days, [])
 
     def test_finds_highest_hrv(self):
         highlights = find_highlights(MOCK_WEEK, MOCK_ACTIVITIES)
