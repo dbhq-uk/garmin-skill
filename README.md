@@ -98,6 +98,7 @@ Ask in any session.
 | Sleep score, duration, deep/light/REM/awake | `garmin_sleep.py` |
 | Activities with HR, calories, training effect | `garmin_activities.py 7` |
 | VO2 max, training load, readiness, status | `garmin_activities.py training` |
+| Any of the five above as JSON: numbers unformatted, seconds and metres, `null` for no data | add `--json` |
 | A day as markdown | `garmin_snapshot.py --output-dir <dir>` |
 | A week as markdown | `garmin_rollup.py --output-dir <dir>` |
 | Whether it is set up, and what to do if not, with no call to Garmin | `garmin_status.py` |

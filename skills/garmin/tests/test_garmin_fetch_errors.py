@@ -151,8 +151,24 @@ class TestQueriesSayTheCallFailed:
             (garmin_sleep, ["2026-09-01"]),
             (garmin_activities, ["7"]),
             (garmin_activities, ["training"]),
+            (garmin_health, ["today", "--json"]),
+            (garmin_health, ["week", "--json"]),
+            (garmin_sleep, ["2026-09-01", "--json"]),
+            (garmin_activities, ["7", "--json"]),
+            (garmin_activities, ["training", "--json"]),
         ],
-        ids=["health-today", "health-week", "sleep", "activities", "training"],
+        ids=[
+            "health-today",
+            "health-week",
+            "sleep",
+            "activities",
+            "training",
+            "health-today-json",
+            "health-week-json",
+            "sleep-json",
+            "activities-json",
+            "training-json",
+        ],
     )
     def test_failure_is_an_error_not_no_data(self, module, argv, monkeypatch, capsys):
         code = _run(module, argv, _client(raises=FAILURES[0]), monkeypatch)
@@ -160,9 +176,9 @@ class TestQueriesSayTheCallFailed:
         out, err = capsys.readouterr()
         assert code == 1
         assert "Error:" in err
-        assert "No data" not in out
-        assert "No sleep data" not in out
-        assert "No activities" not in out
+        # Nothing at all on stdout: not "No data" in a table, and not a JSON
+        # object of nulls, which an agent would read as a day with no data.
+        assert out == ""
 
 
 def test_no_fetcher_catches_bare_exception():
