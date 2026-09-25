@@ -18,6 +18,7 @@ Usage as CLI (test auth):
 import json
 import os
 import sys
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -55,6 +56,11 @@ COOLDOWN_FILE = os.path.expanduser("~/.dbhq/garmin/ratelimited_until")
 # Retry-After. Half an hour is long enough not to extend a block by knocking on
 # it, and short enough that a blip does not cost the afternoon.
 DEFAULT_COOLDOWN = timedelta(minutes=30)
+
+# A query that covers several days waits this long between them, so a week is
+# a steady trickle rather than a burst. Garmin publishes no rate, so this is a
+# courtesy rather than a guarantee. The test suite sets it to zero.
+DAY_PAUSE_SECONDS = 1.0
 
 
 class GarminConfigError(Exception):
@@ -273,6 +279,21 @@ def check_cooldown() -> None:
     until = cooldown_until()
     if until is not None:
         raise GarminRateLimitedError(rate_limit_message(until))
+
+
+def pause_between_days() -> None:
+    """Wait before the next day of a multi-day query, then check it may go ahead.
+
+    A cooldown can start part-way through a run: this run's own 429 has
+    already stopped it, but another script can hit one while this one waits.
+
+    Raises:
+        GarminFetchError: a cooldown is running. The next day is not fetched.
+    """
+    time.sleep(DAY_PAUSE_SECONDS)
+    until = cooldown_until()
+    if until is not None:
+        raise GarminFetchError(rate_limit_message(until))
 
 
 def describe_auth_failure(token_dir: str, exc: Exception) -> str:

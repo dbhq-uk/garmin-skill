@@ -29,6 +29,12 @@ def private_cooldown_file(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_pause_between_days(monkeypatch):
+    # Multi-day queries wait between days. A test that cares sets it back.
+    monkeypatch.setattr(garmin_client, "DAY_PAUSE_SECONDS", 0)
+
+
+@pytest.fixture(autouse=True)
 def no_password_prompt(monkeypatch):
     monkeypatch.delenv("GARMIN_PASSWORD", raising=False)
 

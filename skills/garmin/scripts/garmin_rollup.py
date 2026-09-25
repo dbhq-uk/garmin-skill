@@ -23,7 +23,7 @@ from garmin_activities import (
     fetch_training,
 )
 from garmin_client import GarminConfigError, GarminFetchError, fetch, get_client, load_config
-from garmin_health import extract_day_summary, fetch_day_data, format_weekly_vitals
+from garmin_health import fetch_day_summaries, format_weekly_vitals
 
 
 def get_week_dates(year: int, week: int) -> list[str]:
@@ -237,20 +237,24 @@ def main():
     units = config.get("units", "imperial")
     year, week = resolve_week(args.week)
     dates = get_week_dates(year, week)
+    today = date.today()
+    if dates[0] > today.isoformat():
+        print(f"Error: {year}-W{week:02d} has not started yet. Nothing written.", file=sys.stderr)
+        sys.exit(1)
+    # The current week is fetched up to today and no further: Garmin has
+    # nothing for a day that has not happened, and asking costs calls.
+    last_day = min(dates[-1], today.isoformat())
     print(f"Generating rollup for {year}-W{week:02d} ({dates[0]} to {dates[-1]})...")
 
     # Fetch everything before writing anything. One failed call and the week
     # is not known, so nothing is written and an existing rollup stays as it was.
     try:
-        day_summaries = []
-        for d in dates:
-            data = fetch_day_data(client, d)
-            day_summaries.append(extract_day_summary(d, data))
+        day_summaries = fetch_day_summaries(client, dates, today)
 
-        activities = fetch(client.get_activities_by_date, dates[0], dates[-1]) or []
+        activities = fetch(client.get_activities_by_date, dates[0], last_day) or []
 
-        # Training status from most recent day
-        training_status, training_readiness = fetch_training(client, dates[-1])
+        # Training status from the most recent day that has happened
+        training_status, training_readiness = fetch_training(client, last_day)
     except GarminFetchError as e:
         print(f"Error: {e}\nNothing written for {year}-W{week:02d}.", file=sys.stderr)
         sys.exit(1)

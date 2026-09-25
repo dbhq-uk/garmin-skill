@@ -24,9 +24,9 @@ ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_rollup.p
 ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_client.py             # check the saved session
 ```
 
-- `health`: resting HR, HRV, Body Battery (the day's lowest to highest level, and the latest), stress, steps, calories. `week` is a 7-day table.
+- `health`: resting HR, HRV, Body Battery (the day's lowest to highest level, and the latest), stress, steps, calories. `week` is a 7-day table. It fetches a day at a time with a short pause, so it takes several seconds.
 - `training`: VO2 max, training load, readiness, status.
-- `snapshot` writes a day to `DIR/YYYY-MM-DD.md` (default today). `rollup` writes an ISO week to `DIR/YYYY-Www.md` (default this week; `last` works).
+- `snapshot` writes a day to `DIR/YYYY-MM-DD.md` (default today). `rollup` writes an ISO week to `DIR/YYYY-Www.md` (default this week; `last` works). Days after today are left empty and not fetched.
 
 "No data" in a row means Garmin has nothing for that day. It is not an error.
 

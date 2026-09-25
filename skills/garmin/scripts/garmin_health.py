@@ -15,15 +15,24 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from garmin_client import GarminConfigError, GarminFetchError, fetch, get_client, load_config
+from garmin_client import (
+    GarminConfigError,
+    GarminFetchError,
+    fetch,
+    get_client,
+    load_config,
+    pause_between_days,
+)
 
 
-def fetch_day_data(client, cdate: str) -> dict:
+def fetch_day_data(client, cdate: str, body_battery: list | None = None) -> dict:
     """Fetch all health data for a single day from Garmin API.
 
     Args:
         client: Authenticated Garmin client.
         cdate: Date string in YYYY-MM-DD format.
+        body_battery: The day's get_body_battery() entries, when a range call
+            has already fetched them. None means fetch them here.
 
     Returns:
         Dict with keys: stats, hrv, body_battery, stress. A key Garmin has
@@ -34,7 +43,8 @@ def fetch_day_data(client, cdate: str) -> dict:
     """
     stats = fetch(client.get_stats, cdate) or {}
     hrv = fetch(client.get_hrv_data, cdate)
-    body_battery = fetch(client.get_body_battery, cdate) or []
+    if body_battery is None:
+        body_battery = fetch(client.get_body_battery, cdate) or []
     stress = fetch(client.get_stress_data, cdate) or {}
     return {
         "stats": stats,
@@ -42,6 +52,42 @@ def fetch_day_data(client, cdate: str) -> dict:
         "body_battery": body_battery,
         "stress": stress,
     }
+
+
+def fetch_day_summaries(client, dates: list[str], today: date | None = None) -> list[dict]:
+    """Day summaries for several dates, fetched one day at a time.
+
+    Paced: pause_between_days() runs before every day after the first, and
+    refuses to go on once a cooldown is running. A date after today gets an
+    empty summary and no call, because Garmin has nothing for a day that has
+    not happened. Body Battery comes from one range call for all the dates,
+    since get_body_battery() takes a range and answers each day in the same
+    shape as a single-day call. The other endpoints have no range form with a
+    documented shape, so they stay per day.
+
+    Raises:
+        GarminFetchError: a call failed, or a cooldown started. The run stops
+            there, and no later day is fetched.
+    """
+    last = (today or date.today()).isoformat()
+    past = sorted(d for d in dates if d <= last)
+    by_date = {}
+    if past:
+        entries = fetch(client.get_body_battery, past[0], past[-1]) or []
+        by_date = {e.get("date"): e for e in entries if isinstance(e, dict)}
+
+    summaries = []
+    fetched = 0
+    for d in dates:
+        if d > last:
+            summaries.append(extract_day_summary(d, {}))
+            continue
+        if fetched:
+            pause_between_days()
+        data = fetch_day_data(client, d, body_battery=[by_date[d]] if d in by_date else [])
+        summaries.append(extract_day_summary(d, data))
+        fetched += 1
+    return summaries
 
 
 def _is_level(value) -> bool:
@@ -299,12 +345,8 @@ def main():
     try:
         if args.command == "week":
             today = date.today()
-            days = []
-            for i in range(6, -1, -1):
-                d = (today - timedelta(days=i)).isoformat()
-                data = fetch_day_data(client, d)
-                days.append(extract_day_summary(d, data))
-            print(format_weekly_vitals(days))
+            dates = [(today - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
+            print(format_weekly_vitals(fetch_day_summaries(client, dates, today)))
         else:
             cdate = resolve_date(args.command)
             data = fetch_day_data(client, cdate)
