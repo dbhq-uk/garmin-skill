@@ -14,7 +14,7 @@ skills/garmin/SKILL.md              # the skill (agent-facing instructions)
 skills/garmin/scripts/              # the CLI scripts and setup.sh
 skills/garmin/tests/                # pytest suite, no network
 skills/garmin/references/setup.md   # manual setup, for when setup.sh fails part-way
-skills/garmin/requirements.txt      # garminconnect, garth, pytest
+skills/garmin/requirements.txt      # garminconnect, pytest
 install.sh / install-codex.sh       # local symlink installers (Claude / Codex)
 ```
 
@@ -39,7 +39,7 @@ Everything else here is a preference. These are not.
 
 ## The upstream API is undocumented, and that shapes the tests
 
-Garmin Connect has no public API, no versioning and no deprecation notices. `garminconnect` and `garth` track it by reverse engineering, and things get renamed underneath them.
+Garmin Connect has no public API, no versioning and no deprecation notices. `garminconnect` tracks it by reverse engineering, and things get renamed underneath it. Its 0.3 release dropped `garth` altogether and changed the token format, and this skill went on writing garth tokens nothing could read.
 
 This is why `tests/test_garmin_api_contract.py` imports the **real** `garminconnect` rather than a mock. A `MagicMock` invents whatever attribute it is asked for, so a mocked suite stays green through an upstream rename - which is exactly how an auth-surface change (`.garth` -> `.client`) went unnoticed for months. That test constructs `Garmin()` and inspects its actual attributes. It still makes no network call: the login assertion fails on the missing tokenstore before any request is built.
 

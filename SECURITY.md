@@ -14,8 +14,8 @@ touches.
 
 ### Network
 
-**Garmin, and nothing else.** `garminconnect` and `garth` talk to Garmin's
-servers to authenticate and to fetch. There is no DBHQ endpoint, no telemetry,
+**Garmin, and nothing else.** `garminconnect` talks to Garmin's servers to
+authenticate and to fetch. There is no DBHQ endpoint, no telemetry,
 no analytics, and no third-party service in the path. Run it with the network
 off and it fails to reach Garmin and does nothing else.
 
@@ -26,8 +26,10 @@ deletes anything in your Garmin account.
 
 - `~/.dbhq/garmin/config.json` holds your Garmin Connect email and password, written
   at mode **600**, in a directory created at mode **700**
-- `~/.dbhq/garmin/tokens/` holds the OAuth tokens Garmin issues after login. These
-  are valid for roughly a year and are what the skill uses day to day
+- `~/.dbhq/garmin/tokens/garmin_tokens.json` holds the tokens Garmin issues
+  after login, written by `garminconnect` at mode **600** in a directory at
+  mode **700**. They are what the skill uses day to day, and `garminconnect`
+  refreshes them as they are used
 - Nothing is written to the repository, and the password is never logged or
   printed
 
@@ -46,9 +48,9 @@ entirely.
 
 ### Third-party code
 
-Three pinned dependencies:
-[`garminconnect`](https://github.com/cyberjunky/python-garminconnect),
-[`garth`](https://github.com/matin/garth) and `pytest`. Dependabot keeps them
+Two pinned dependencies:
+[`garminconnect`](https://github.com/cyberjunky/python-garminconnect) and
+`pytest`. Dependabot keeps them
 current. Garmin Connect is an undocumented, unversioned API, so these libraries
 change more often than most - which is a maintenance fact rather than a security
 one, but it is why the pins move.

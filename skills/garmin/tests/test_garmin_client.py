@@ -2,7 +2,6 @@
 
 import json
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,7 +15,8 @@ from garmin_client import (
     describe_auth_failure,
     get_client,
     load_config,
-    read_refresh_expiry,
+    remove_legacy_tokens,
+    token_format,
 )
 
 
@@ -53,7 +53,7 @@ class TestGetClient:
     @patch("garmin_client.Garmin")
     def test_resumes_from_cached_tokens(self, MockGarmin, tmp_path):
         token_dir = tmp_path / "tokens"
-        _write_oauth2(token_dir, (datetime.now() + timedelta(days=10)).timestamp())
+        _write_current(token_dir)
 
         mock_garmin = MagicMock()
         MockGarmin.return_value = mock_garmin
@@ -70,14 +70,14 @@ class TestGetClient:
     def test_never_attempts_credential_login(self, MockGarmin, tmp_path):
         """The whole point: a failed resume must not fall back to SSO."""
         token_dir = tmp_path / "tokens"
-        _write_oauth2(token_dir, (datetime.now() - timedelta(days=30)).timestamp())
+        _write_legacy(token_dir)
 
         mock_garmin = MagicMock()
         mock_garmin.login.side_effect = Exception("Username and password are required")
         MockGarmin.return_value = mock_garmin
 
         config = {"email": "test@example.com", "password": "secret123"}
-        with pytest.raises(GarminAuthError, match="expired"):
+        with pytest.raises(GarminAuthError, match="Old token format"):
             get_client(config, token_dir=str(token_dir))
 
         # Exactly one Garmin() -- no second, credential-bearing instance.
@@ -97,7 +97,7 @@ class TestGetClient:
     @patch("garmin_client.Garmin")
     def test_rate_limit_does_not_advise_relogin(self, MockGarmin, tmp_path):
         token_dir = tmp_path / "tokens"
-        _write_oauth2(token_dir, (datetime.now() + timedelta(days=10)).timestamp())
+        _write_current(token_dir)
 
         mock_garmin = MagicMock()
         mock_garmin.login.side_effect = Exception("Error 429: Too Many Requests")
@@ -112,7 +112,7 @@ class TestGetClient:
     def test_persists_tokens_after_resume(self, MockGarmin, tmp_path):
         """A resume may silently refresh the access token; persist it."""
         token_dir = tmp_path / "tokens"
-        _write_oauth2(token_dir, (datetime.now() + timedelta(days=10)).timestamp())
+        _write_current(token_dir)
 
         mock_garmin = MagicMock()
         MockGarmin.return_value = mock_garmin
@@ -151,32 +151,41 @@ class TestGarminAuthErrorContract:
 RELOGIN_HINT = "garmin_login.py"
 
 
-def _write_oauth2(token_dir, expires_at):
+def _write_current(token_dir):
     token_dir.mkdir(parents=True, exist_ok=True)
-    (token_dir / "oauth2_token.json").write_text(json.dumps({"refresh_token_expires_at": expires_at}))
+    (token_dir / "garmin_tokens.json").write_text(json.dumps({"di_token": "x", "di_refresh_token": "y"}))
 
 
-class TestReadRefreshExpiry:
-    def test_returns_none_when_token_dir_missing(self, tmp_path):
-        assert read_refresh_expiry(str(tmp_path / "nope")) is None
+def _write_legacy(token_dir):
+    """The two files garth wrote, which garminconnect 0.3 cannot read."""
+    token_dir.mkdir(parents=True, exist_ok=True)
+    (token_dir / "oauth1_token.json").write_text(json.dumps({"oauth_token": "a"}))
+    (token_dir / "oauth2_token.json").write_text(json.dumps({"refresh_token_expires_at": 1742898314}))
 
-    def test_returns_none_when_field_absent(self, tmp_path):
+
+class TestTokenFormat:
+    def test_missing_when_token_dir_missing(self, tmp_path):
+        assert token_format(str(tmp_path / "nope")) == "missing"
+
+    def test_missing_when_token_dir_empty(self, tmp_path):
+        (tmp_path / "tokens").mkdir()
+        assert token_format(str(tmp_path / "tokens")) == "missing"
+
+    def test_legacy_when_only_garth_files(self, tmp_path):
+        _write_legacy(tmp_path / "tokens")
+        assert token_format(str(tmp_path / "tokens")) == "legacy"
+
+    def test_current_wins_over_leftover_garth_files(self, tmp_path):
+        _write_legacy(tmp_path / "tokens")
+        _write_current(tmp_path / "tokens")
+        assert token_format(str(tmp_path / "tokens")) == "current"
+
+    def test_remove_legacy_tokens_leaves_the_current_file(self, tmp_path):
         token_dir = tmp_path / "tokens"
-        token_dir.mkdir()
-        (token_dir / "oauth2_token.json").write_text(json.dumps({"scope": "x"}))
-        assert read_refresh_expiry(str(token_dir)) is None
-
-    def test_returns_none_on_corrupt_json(self, tmp_path):
-        token_dir = tmp_path / "tokens"
-        token_dir.mkdir()
-        (token_dir / "oauth2_token.json").write_text("{not json")
-        assert read_refresh_expiry(str(token_dir)) is None
-
-    def test_reads_expiry_timestamp(self, tmp_path):
-        token_dir = tmp_path / "tokens"
-        expected = datetime(2026, 3, 25, 10, 25, 14)
-        _write_oauth2(token_dir, expected.timestamp())
-        assert read_refresh_expiry(str(token_dir)) == expected
+        _write_legacy(token_dir)
+        _write_current(token_dir)
+        assert remove_legacy_tokens(str(token_dir)) == ["oauth1_token.json", "oauth2_token.json"]
+        assert sorted(p.name for p in token_dir.iterdir()) == ["garmin_tokens.json"]
 
 
 class TestAuthFailureClassification:
@@ -185,21 +194,21 @@ class TestAuthFailureClassification:
         assert "Not authenticated" in msg
         assert RELOGIN_HINT in msg
 
-    def test_expired_tokens_report_the_expiry_date(self, tmp_path):
+    def test_garth_tokens_say_old_format_not_expired(self, tmp_path):
+        """Old-format tokens are not expired, and saying so sends people the wrong way."""
         token_dir = tmp_path / "tokens"
-        expired = datetime.now() - timedelta(days=30)
-        _write_oauth2(token_dir, expired.timestamp())
+        _write_legacy(token_dir)
 
-        msg = describe_auth_failure(str(token_dir), Exception("boom"))
+        msg = describe_auth_failure(str(token_dir), Exception("Username and password are required"))
 
-        assert "expired" in msg.lower()
-        assert expired.date().isoformat() in msg
+        assert "Old token format" in msg
+        assert "expired on" not in msg
         assert RELOGIN_HINT in msg
 
     def test_rate_limit_does_not_advise_relogin(self, tmp_path):
         """A 429 must NOT tell the user to log in again -- that deepens the block."""
         token_dir = tmp_path / "tokens"
-        _write_oauth2(token_dir, (datetime.now() + timedelta(days=10)).timestamp())
+        _write_current(token_dir)
 
         msg = describe_auth_failure(str(token_dir), Exception("Error 429: Too Many Requests"))
 
@@ -208,7 +217,7 @@ class TestAuthFailureClassification:
 
     def test_unknown_error_is_surfaced_verbatim(self, tmp_path):
         token_dir = tmp_path / "tokens"
-        _write_oauth2(token_dir, (datetime.now() + timedelta(days=10)).timestamp())
+        _write_current(token_dir)
 
         msg = describe_auth_failure(str(token_dir), Exception("kaboom specifics"))
 
