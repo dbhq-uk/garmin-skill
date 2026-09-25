@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from garmin_client import GarminConfigError, get_client, load_config
+from garmin_client import GarminConfigError, GarminFetchError, fetch, get_client, load_config
 
 
 def fetch_day_data(client, cdate: str) -> dict:
@@ -26,26 +26,22 @@ def fetch_day_data(client, cdate: str) -> dict:
         cdate: Date string in YYYY-MM-DD format.
 
     Returns:
-        Dict with keys: stats, hrv, body_battery, stress.
+        Dict with keys: stats, hrv, body_battery, stress. A key Garmin has
+        nothing for is empty, and renders as "No data".
+
+    Raises:
+        GarminFetchError: a call failed. Nothing about the day is known.
     """
-    stats = _safe_call(client.get_stats, cdate) or {}
-    hrv = _safe_call(client.get_hrv_data, cdate)
-    body_battery = _safe_call(client.get_body_battery, cdate) or []
-    stress = _safe_call(client.get_stress_data, cdate) or {}
+    stats = fetch(client.get_stats, cdate) or {}
+    hrv = fetch(client.get_hrv_data, cdate)
+    body_battery = fetch(client.get_body_battery, cdate) or []
+    stress = fetch(client.get_stress_data, cdate) or {}
     return {
         "stats": stats,
         "hrv": hrv,
         "body_battery": body_battery,
         "stress": stress,
     }
-
-
-def _safe_call(fn, *args, **kwargs):
-    """Call a Garmin API method, returning None on error."""
-    try:
-        return fn(*args, **kwargs)
-    except Exception:
-        return None
 
 
 def format_daily_vitals(
@@ -242,26 +238,30 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if args.command == "week":
-        today = date.today()
-        days = []
-        for i in range(6, -1, -1):
-            d = (today - timedelta(days=i)).isoformat()
-            data = fetch_day_data(client, d)
-            days.append(extract_day_summary(d, data))
-        print(format_weekly_vitals(days))
-    else:
-        cdate = resolve_date(args.command)
-        data = fetch_day_data(client, cdate)
-        print(
-            format_daily_vitals(
-                cdate=cdate,
-                stats=data["stats"],
-                hrv=data["hrv"],
-                body_battery=data["body_battery"],
-                stress=data["stress"],
+    try:
+        if args.command == "week":
+            today = date.today()
+            days = []
+            for i in range(6, -1, -1):
+                d = (today - timedelta(days=i)).isoformat()
+                data = fetch_day_data(client, d)
+                days.append(extract_day_summary(d, data))
+            print(format_weekly_vitals(days))
+        else:
+            cdate = resolve_date(args.command)
+            data = fetch_day_data(client, cdate)
+            print(
+                format_daily_vitals(
+                    cdate=cdate,
+                    stats=data["stats"],
+                    hrv=data["hrv"],
+                    body_battery=data["body_battery"],
+                    stress=data["stress"],
+                )
             )
-        )
+    except GarminFetchError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

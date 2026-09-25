@@ -11,10 +11,17 @@ No network calls: constructing Garmin() and inspecting attributes is offline.
 """
 
 import inspect
+import sys
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from garminconnect import Garmin
-from garminconnect.exceptions import GarminConnectAuthenticationError
+from garminconnect.exceptions import GarminConnectAuthenticationError, GarminConnectConnectionError
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+
+from garmin_client import EMPTY_RESPONSE_MESSAGE, fetch
 
 
 def test_garmin_exposes_client_attribute():
@@ -52,3 +59,19 @@ def test_credential_free_login_cannot_reach_sso():
     with pytest.raises(GarminConnectAuthenticationError):
         # Empty tokenstore dir -> tokens fail to load -> must refuse, not log in.
         g.login("/nonexistent/token/dir/for/contract/test")
+
+
+def test_empty_daily_summary_is_still_reported_the_way_fetch_expects():
+    """get_stats() raises one specific error for an empty body, and fetch() reads it as no data.
+
+    Only the HTTP call is replaced. If garminconnect rewords that message or
+    changes the exception, a day with no stats would start aborting snapshots,
+    and this is the test that says why.
+    """
+    g = Garmin()
+    g.display_name = "tester"
+    with patch.object(Garmin, "connectapi", return_value=None):
+        with pytest.raises(GarminConnectConnectionError) as excinfo:
+            g.get_stats("2026-09-01")
+        assert str(excinfo.value) == EMPTY_RESPONSE_MESSAGE
+        assert fetch(g.get_stats, "2026-09-01") is None

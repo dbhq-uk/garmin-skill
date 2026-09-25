@@ -22,7 +22,7 @@ from garmin_activities import (
     format_activities,
     format_training_status,
 )
-from garmin_client import GarminConfigError, get_client, load_config
+from garmin_client import GarminConfigError, GarminFetchError, get_client, load_config
 from garmin_health import fetch_day_data, format_daily_vitals
 from garmin_sleep import fetch_sleep, format_sleep_data
 
@@ -136,13 +136,20 @@ def main():
     cdate = resolve_date(args.date)
     print(f"Fetching Garmin data for {cdate}...")
 
-    # Fetch all data
-    health_data = fetch_day_data(client, cdate)
-    sleep_data = fetch_sleep(client, cdate)
-    activities_data = fetch_activities(client, days=1)
+    # Fetch everything before writing anything. One failed call and the day is
+    # not known, so nothing is written: an existing file for the date stays as
+    # it was, rather than being replaced by "No data" rows that look like a day
+    # the watch was not worn.
+    try:
+        health_data = fetch_day_data(client, cdate)
+        sleep_data = fetch_sleep(client, cdate)
+        activities_data = fetch_activities(client, days=1)
+        training_status, training_readiness = fetch_training(client, cdate)
+    except GarminFetchError as e:
+        print(f"Error: {e}\nNothing written for {cdate}.", file=sys.stderr)
+        sys.exit(1)
     # Filter activities to just this date
     activities = [a for a in activities_data if a.get("startTimeLocal", "").startswith(cdate)]
-    training_status, training_readiness = fetch_training(client, cdate)
 
     # Generate and write
     markdown = generate_daily_markdown(

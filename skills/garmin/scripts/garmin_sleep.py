@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from garmin_client import GarminConfigError, get_client, load_config
+from garmin_client import GarminConfigError, GarminFetchError, fetch, get_client, load_config
 
 
 def _format_duration(seconds: int | None) -> str:
@@ -66,11 +66,12 @@ def format_sleep_data(cdate: str, sleep_data: dict | None) -> str:
 
 
 def fetch_sleep(client, cdate: str) -> dict | None:
-    """Fetch sleep data from Garmin API."""
-    try:
-        return client.get_sleep_data(cdate)
-    except Exception:
-        return None
+    """Fetch sleep data from Garmin API.
+
+    Returns None when Garmin has no sleep for the date. Raises
+    GarminFetchError when the call failed.
+    """
+    return fetch(client.get_sleep_data, cdate)
 
 
 def resolve_date(date_arg: str) -> str:
@@ -102,7 +103,11 @@ def main():
         sys.exit(1)
 
     cdate = resolve_date(args.date)
-    sleep_data = fetch_sleep(client, cdate)
+    try:
+        sleep_data = fetch_sleep(client, cdate)
+    except GarminFetchError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
     print(format_sleep_data(cdate, sleep_data))
 
 
