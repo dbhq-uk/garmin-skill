@@ -26,7 +26,7 @@ Ask your agent how you slept and get an answer, rather than opening an app to re
 
 **"No data" and "the call failed" are different things, and it treats them differently.** A day Garmin has nothing for renders as "No data" and the file still writes. A fetch that actually failed - a rate limit, a rejected session, a network error - raises, the script exits non-zero, and nothing is written, so a file already archived for that day stays as it was. That distinction sounds pedantic until the alternative bites you: an archive quietly full of empty days, indistinguishable from days you genuinely did not wear the watch.
 
-**It is tested against the real client, not only a mock.** Garmin Connect has no public API and no versioning; the library that wraps it renames things when Garmin moves underneath it. Mocked tests cannot see that, because a `MagicMock` invents whatever attribute it is asked for - which is how an auth-surface rename went unnoticed for months. So one test imports the real `garminconnect` and inspects its actual surface. It still makes no network call.
+**It is tested against the real client, not only a mock.** Garmin Connect has no public API and no versioning; the library that wraps it renames things when Garmin moves underneath it. Mocked tests cannot see that, because a `MagicMock` invents whatever attribute it is asked for - which is how an auth-surface rename went unnoticed for months. So one test imports the real `garminconnect`, inspects its actual surface, and checks that the tokens the login writes are ones garminconnect's own login accepts. It still makes no network call.
 
 ## Install
 

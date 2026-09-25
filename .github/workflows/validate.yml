@@ -167,9 +167,9 @@ jobs:
         # It exists to catch an upstream auth-surface rename (.garth -> .client),
         # which mocked tests cannot see because MagicMock invents whatever
         # attribute it is asked for - that is how the break went unnoticed for
-        # months. Still no network: it only constructs Garmin() and inspects
-        # attributes, and the login assertion fails on the missing tokenstore
-        # before any request.
+        # months. It also checks that the tokens the login writes are ones
+        # garminconnect's own login(tokenstore) accepts. Still no network: the
+        # strategy chain, the token refresh and the profile fetch are replaced.
         run: python -m pytest tests/ -v -p no:cacheprovider
 
   installers:
