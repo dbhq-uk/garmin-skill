@@ -44,6 +44,75 @@ def fetch_day_data(client, cdate: str) -> dict:
     }
 
 
+def _is_level(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _levels_from_values_array(body_battery) -> list:
+    """Body Battery levels through the day, oldest first, from get_body_battery().
+
+    Each reading in bodyBatteryValuesArray is a list, and the response carries
+    a descriptor list naming what each position holds. The level is found by
+    that name rather than by a guessed position; with no descriptor, there are
+    no levels.
+    """
+    day = body_battery[0] if isinstance(body_battery, list) and body_battery else body_battery
+    if not isinstance(day, dict):
+        return []
+    positions = {
+        d.get("bodyBatteryValueDescriptorKey"): d.get("bodyBatteryValueDescriptorIndex")
+        for d in day.get("bodyBatteryValueDescriptorDTOList") or []
+        if isinstance(d, dict)
+    }
+    at_time, at_level = positions.get("timestamp"), positions.get("bodyBatteryLevel")
+    if not isinstance(at_level, int):
+        return []
+    readings = []
+    for reading in day.get("bodyBatteryValuesArray") or []:
+        if isinstance(reading, list) and len(reading) > at_level and _is_level(reading[at_level]):
+            when = reading[at_time] if isinstance(at_time, int) and len(reading) > at_time else 0
+            readings.append((when if _is_level(when) else 0, reading[at_level]))
+    return [level for _, level in sorted(readings, key=lambda r: r[0])]
+
+
+def body_battery_levels(stats: dict, body_battery) -> tuple:
+    """The day's lowest, highest and most recent Body Battery level (0 to 100).
+
+    Taken from the daily summary's level fields, falling back to the readings
+    in get_body_battery() when the summary has none. Never from "charged" and
+    "drained": those are how much was gained and lost over the day, amounts
+    rather than levels, and subtracting one from the other can go below zero.
+
+    Returns:
+        (lowest, highest, most_recent). Any of them can be None.
+    """
+    stats = stats or {}
+    low = stats.get("bodyBatteryLowestValue")
+    high = stats.get("bodyBatteryHighestValue")
+    latest = stats.get("bodyBatteryMostRecentValue")
+    low, high, latest = (v if _is_level(v) else None for v in (low, high, latest))
+    if low is None and high is None and latest is None:
+        levels = _levels_from_values_array(body_battery)
+        if levels:
+            low, high, latest = min(levels), max(levels), levels[-1]
+    return low, high, latest
+
+
+def format_body_battery(stats: dict, body_battery) -> str:
+    """The Body Battery row: the day's range and its most recent level."""
+    low, high, latest = body_battery_levels(stats, body_battery)
+    parts = []
+    if low is not None and high is not None:
+        parts.append(f"{low}-{high}")
+    elif high is not None:
+        parts.append(f"high {high}")
+    elif low is not None:
+        parts.append(f"low {low}")
+    if latest is not None:
+        parts.append(f"latest {latest}")
+    return ", ".join(parts) if parts else "No data"
+
+
 def format_daily_vitals(
     cdate: str,
     stats: dict,
@@ -55,9 +124,10 @@ def format_daily_vitals(
 
     Args:
         cdate: Date string YYYY-MM-DD.
-        stats: Response from get_stats().
+        stats: Response from get_stats(). Also the source of Body Battery levels.
         hrv: Response from get_hrv_data() or None.
-        body_battery: Response from get_body_battery().
+        body_battery: Response from get_body_battery(), used for Body Battery
+            only when stats has no level fields.
         stress: Response from get_stress_data().
 
     Returns:
@@ -73,16 +143,7 @@ def format_daily_vitals(
             hrv_val = summary.get("lastNightAvg") or summary.get("weeklyAvg")
     hrv_str = f"{hrv_val} ms" if hrv_val else "No data"
 
-    if body_battery and len(body_battery) > 0:
-        bb = body_battery[0] if isinstance(body_battery, list) else body_battery
-        charged = bb.get("charged", "?")
-        drained = bb.get("drained", "?")
-        if isinstance(charged, (int, float)) and isinstance(drained, (int, float)):
-            bb_str = f"{charged} \u2192 {charged - drained}"
-        else:
-            bb_str = "No data"
-    else:
-        bb_str = "No data"
+    bb_str = format_body_battery(stats, body_battery)
 
     stress_val = stress.get("avgStressLevel") or stress.get("overallStressLevel")
     max_stress = stress.get("maxStressLevel")
@@ -134,10 +195,7 @@ def extract_day_summary(cdate: str, data: dict) -> dict:
         if summary:
             hrv_val = summary.get("lastNightAvg") or summary.get("weeklyAvg")
 
-    bb_peak = None
-    if body_battery and len(body_battery) > 0:
-        bb = body_battery[0] if isinstance(body_battery, list) else body_battery
-        bb_peak = bb.get("charged")
+    _, bb_peak, _ = body_battery_levels(stats, body_battery)
 
     return {
         "date": cdate,

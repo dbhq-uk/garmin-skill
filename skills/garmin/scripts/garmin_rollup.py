@@ -52,8 +52,8 @@ def find_highlights(day_summaries: list[dict], activities: list[dict]) -> list[s
     """
     highlights = []
 
-    # Best body battery
-    bb_days = [(d["date"], d["body_battery_peak"]) for d in day_summaries if d.get("body_battery_peak")]
+    # Highest Body Battery level of the week (the peak level, not an amount charged)
+    bb_days = [(d["date"], d["body_battery_peak"]) for d in day_summaries if d.get("body_battery_peak") is not None]
     if bb_days:
         best_bb = max(bb_days, key=lambda x: x[1])
         dt = date.fromisoformat(best_bb[0])

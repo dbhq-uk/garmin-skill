@@ -13,6 +13,9 @@ MOCK_HEALTH = {
         "totalSteps": 8432,
         "totalKilocalories": 2180,
         "restingHeartRate": 58,
+        "bodyBatteryLowestValue": 22,
+        "bodyBatteryHighestValue": 91,
+        "bodyBatteryMostRecentValue": 64,
     },
     "hrv": {
         "hrvSummary": {"lastNightAvg": 42, "weeklyAvg": 42, "status": "BALANCED"},
@@ -84,6 +87,7 @@ class TestGenerateDailyMarkdown:
             training_readiness=MOCK_TRAINING_READINESS,
         )
         assert "58 bpm" in md  # resting HR
+        assert "| Body Battery | 22-91, latest 64 |" in md
         assert "82" in md  # sleep score
         assert "HYROX" in md  # activity name
         assert "44" in md  # VO2 max
