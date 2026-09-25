@@ -75,7 +75,7 @@ def paths(tmp_path):
     config_dir = base / "garmin"
     config_dir.mkdir()
     config_path = config_dir / "config.json"
-    config_path.write_text(json.dumps({"email": "test@example.com", "password": "secret"}))
+    config_path.write_text(json.dumps({"email": "test@example.com"}))
     return config_path, config_dir / "tokens"
 
 
@@ -96,7 +96,7 @@ class TestRoundTrip:
             return None, None
 
         with patch.object(Client, "login", strategy_chain):
-            name = garmin_login.login(str(config_path), str(token_dir))
+            name = garmin_login.login(str(config_path), str(token_dir), password="secret")
 
         assert name == "Test User"
         assert (token_dir / TOKEN_FILE).is_file()
@@ -120,7 +120,7 @@ class TestRoundTrip:
                 return None, None
 
             with patch.object(Client, "login", strategy_chain):
-                garmin_login.login(str(config_path), str(token_dir))
+                garmin_login.login(str(config_path), str(token_dir), password="secret")
         finally:
             os.umask(old_umask)
 
@@ -148,7 +148,7 @@ class TestRoundTrip:
             patch.object(Client, "resume_login", resume),
             patch("builtins.input", return_value=" 123456 "),
         ):
-            garmin_login.login(str(config_path), str(token_dir))
+            garmin_login.login(str(config_path), str(token_dir), password="secret")
 
         assert submitted == ["123456"]
         get_client({"email": "test@example.com"}, token_dir=str(token_dir))
@@ -164,7 +164,7 @@ class TestRoundTrip:
             return None, None
 
         with patch.object(Client, "login", strategy_chain):
-            garmin_login.login(str(config_path), str(token_dir))
+            garmin_login.login(str(config_path), str(token_dir), password="secret")
 
         assert sorted(p.name for p in token_dir.iterdir()) == [TOKEN_FILE]
 
@@ -183,7 +183,7 @@ class TestFailures:
 
         with patch.object(Client, "login", strategy_chain):
             with pytest.raises(GarminConfigError, match="cannot resume"):
-                garmin_login.login(str(config_path), str(token_dir))
+                garmin_login.login(str(config_path), str(token_dir), password="secret")
 
         # Nothing is cleared away on a login that did not produce usable tokens.
         assert all((token_dir / name).exists() for name in LEGACY_TOKEN_FILES)
@@ -198,7 +198,7 @@ class TestFailures:
 
         with patch.object(Client, "login", strategy_chain):
             with pytest.raises(GarminConfigError, match="Do not log in again"):
-                garmin_login.login(str(config_path), str(token_dir))
+                garmin_login.login(str(config_path), str(token_dir), password="secret")
 
         assert calls == ["test@example.com"]
         assert not (token_dir / TOKEN_FILE).exists()
@@ -208,6 +208,56 @@ class TestFailures:
         with patch.object(Client, "login") as strategy_chain:
             assert garmin_login.main() == 2
         strategy_chain.assert_not_called()
+
+
+class TestPassword:
+    """The password is asked for at login, handed to Garmin, and never saved."""
+
+    def _login_capturing_password(self, config_path, token_dir, **kwargs):
+        seen = []
+
+        def strategy_chain(self, email, password, prompt_mfa=None, return_on_mfa=False):
+            seen.append(password)
+            _issue_tokens(self)
+            return None, None
+
+        with patch.object(Client, "login", strategy_chain):
+            garmin_login.login(str(config_path), str(token_dir), **kwargs)
+        return seen
+
+    def test_asks_for_it_without_echo(self, paths, no_profile_calls, monkeypatch):
+        config_path, token_dir = paths
+        monkeypatch.setattr(garmin_login.getpass, "getpass", lambda prompt: "typed-secret")
+        assert self._login_capturing_password(config_path, token_dir) == ["typed-secret"]
+
+    def test_reads_garmin_password_when_set(self, paths, no_profile_calls, monkeypatch):
+        config_path, token_dir = paths
+        monkeypatch.setenv("GARMIN_PASSWORD", "env-secret")
+        assert self._login_capturing_password(config_path, token_dir) == ["env-secret"]
+
+    def test_no_password_means_no_attempt(self, paths, no_profile_calls, monkeypatch):
+        config_path, token_dir = paths
+        monkeypatch.setattr(garmin_login.getpass, "getpass", lambda prompt: "")
+        with patch.object(Client, "login") as strategy_chain:
+            with pytest.raises(GarminConfigError, match="No password"):
+                garmin_login.login(str(config_path), str(token_dir))
+        strategy_chain.assert_not_called()
+
+    def test_a_password_saved_by_an_earlier_version_is_removed_not_used(self, paths, no_profile_calls):
+        config_path, token_dir = paths
+        config_path.write_text(json.dumps({"email": "test@example.com", "password": "stored", "units": "metric"}))
+
+        seen = self._login_capturing_password(config_path, token_dir, password="typed")
+
+        assert seen == ["typed"]
+        assert json.loads(config_path.read_text()) == {"email": "test@example.com", "units": "metric"}
+        assert stat.S_IMODE(config_path.stat().st_mode) == 0o600
+
+    def test_nothing_it_writes_holds_the_password(self, paths, no_profile_calls):
+        config_path, token_dir = paths
+        self._login_capturing_password(config_path, token_dir, password="typed-secret")
+        for path in [config_path, *token_dir.iterdir()]:
+            assert "typed-secret" not in path.read_text(), path.name
 
 
 class TestLegacyTokens:

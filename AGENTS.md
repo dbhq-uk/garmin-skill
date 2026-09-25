@@ -28,7 +28,7 @@ Everything else here is a preference. These are not.
 
 **2. "No data" is not "the fetch failed".** `GarminFetchError` means the call failed and the caller must abort rather than write. A `None` return means Garmin genuinely has nothing for that day, and the file still writes with "No data" in the section. Collapsing the two is a one-line change that quietly fills an archive with empty days indistinguishable from days the user did not wear the watch. The distinction is load-bearing; keep it.
 
-**3. Credentials stay on the machine, and stay owner-only.** `~/.dbhq/garmin` is created at 700 and `config.json` written at 600, before anything is written into them. Nothing is transmitted anywhere but Garmin. Do not add telemetry, do not add an aggregation service, and do not relax those modes because a test was easier without them.
+**3. Credentials stay on the machine, and stay owner-only.** `~/.dbhq/garmin` is created at 700 and `config.json` written at 600, before anything is written into them. The password is never stored: `garmin_login.py` asks for it, hands it to Garmin and forgets it, so `config.json` holds only the email and settings. Nothing is transmitted anywhere but Garmin. Do not add telemetry, do not add an aggregation service, and do not relax those modes because a test was easier without them.
 
 ## Conventions
 

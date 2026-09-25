@@ -24,19 +24,26 @@ deletes anything in your Garmin account.
 
 ### Credentials
 
-- `~/.dbhq/garmin/config.json` holds your Garmin Connect email and password, written
-  at mode **600**, in a directory created at mode **700**
+- **Your password is never stored.** `garmin_login.py` asks for it at a prompt
+  that does not echo, or reads it from the `GARMIN_PASSWORD` environment
+  variable, hands it to Garmin for that one login, and forgets it. It is never
+  written to disk, logged or printed. If an earlier version saved it in
+  `config.json`, the next run of `setup.sh` or `garmin_login.py` removes it
+- `~/.dbhq/garmin/config.json` holds your Garmin Connect email and settings. It
+  is created at mode **600** before anything is written into it, in a directory
+  at mode **700**, and replaced whole by a rename, so it is never readable by
+  anyone else or half written
 - `~/.dbhq/garmin/tokens/garmin_tokens.json` holds the tokens Garmin issues
   after login, written by `garminconnect` at mode **600** in a directory at
   mode **700**. They are what the skill uses day to day, and `garminconnect`
-  refreshes them as they are used
-- Nothing is written to the repository, and the password is never logged or
-  printed
+  refreshes them as they are used. Anyone who can read this file can read your
+  Garmin data until the tokens expire, which is why it is owner-only
+- Nothing is written to the repository
 
 Garmin Connect has no API-key or personal-access-token concept, so a username
-and password is the only credential available. Delete `~/.dbhq/garmin/tokens/` to
-force a fresh login; delete `~/.dbhq/garmin/config.json` to remove the credential
-entirely.
+and password is the only way to get tokens. Delete `~/.dbhq/garmin/tokens/` to
+sign this machine out and force a fresh login; delete `~/.dbhq/garmin/` to
+remove everything the skill keeps.
 
 ### On disk
 
@@ -60,8 +67,8 @@ one, but it is why the pins move.
 
 ## Standing position on scanner findings
 
-Automated skill scanners flag the sentence above that names
-`~/.dbhq/garmin/config.json` as "sensitive file access". That is accurate
+Automated skill scanners flag the sentences above that name
+`~/.dbhq/garmin/config.json` and the token file as "sensitive file access". That is accurate
 documentation, not a defect, and the remediation such scanners advise -
 owner-only permissions - is already implemented.
 

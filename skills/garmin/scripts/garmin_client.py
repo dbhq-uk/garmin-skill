@@ -305,32 +305,95 @@ def describe_auth_failure(token_dir: str, exc: Exception) -> str:
 
 
 def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> dict:
-    """Load Garmin credentials from config file.
+    """Load the account email and settings from config.json.
+
+    There is no password in it. garmin_login.py asks for the password when it
+    logs in and never saves it, and every other script resumes from tokens.
 
     Args:
-        config_path: Path to config.json containing email and password.
+        config_path: Path to config.json.
 
     Returns:
-        Dict with 'email' and 'password' keys.
+        Dict with 'email', 'units' and any other settings.
 
     Raises:
-        GarminConfigError: If file missing or fields invalid.
+        GarminConfigError: If file missing, not valid JSON, or has no email.
     """
     path = Path(config_path)
     if not path.exists():
         raise GarminConfigError(f"Config file not found: {config_path}\nRun setup.sh to configure credentials.")
 
-    with open(path) as f:
-        config = json.load(f)
+    try:
+        with open(path) as f:
+            config = json.load(f)
+    except ValueError as exc:
+        raise GarminConfigError(f"{config_path} is not valid JSON ({exc}). Run setup.sh to rewrite it.") from exc
 
-    if "email" not in config or not config["email"]:
+    if not isinstance(config, dict) or not config.get("email"):
         raise GarminConfigError(f"Missing 'email' in {config_path}. Run setup.sh to reconfigure.")
-    if "password" not in config or not config["password"]:
-        raise GarminConfigError(f"Missing 'password' in {config_path}. Run setup.sh to reconfigure.")
 
     # Default preferences
     config.setdefault("units", "imperial")
 
+    return config
+
+
+def save_config(config: dict, config_path: str = DEFAULT_CONFIG_PATH) -> None:
+    """Write config.json at 600, with any password left out.
+
+    The file is created at 600 before a byte goes into it, then renamed over
+    the old one. So it is never readable by anyone else, not even for a
+    moment, and never half written. json.dumps does the quoting, so an email
+    with a quote or a backslash in it cannot break the file.
+    """
+    settings = {key: value for key, value in config.items() if key != "password"}
+    data = (json.dumps(settings, indent=2) + "\n").encode()
+
+    path = Path(config_path)
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(path.parent, 0o700)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.unlink(missing_ok=True)
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+        view = memoryview(data)
+        while view:
+            view = view[os.write(fd, view) :]
+        os.fsync(fd)
+    except BaseException:
+        os.close(fd)
+        tmp.unlink(missing_ok=True)
+        raise
+    os.close(fd)
+    os.replace(tmp, path)
+
+
+def update_config(config_path: str = DEFAULT_CONFIG_PATH, **settings) -> dict:
+    """Rewrite config.json with these settings changed and no password in it.
+
+    Earlier versions stored the Garmin password here. Any rewrite drops it,
+    and one with no settings does nothing else.
+
+    Raises:
+        GarminConfigError: the existing file cannot be read and no email was
+            given to start a new one.
+    """
+    path = Path(config_path)
+    config = {}
+    if path.exists():
+        try:
+            config = json.loads(path.read_text())
+        except ValueError:
+            config = None
+        if not isinstance(config, dict):
+            if "email" not in settings:
+                raise GarminConfigError(
+                    f"{config_path} is not valid settings JSON. Run setup.sh and enter the email again."
+                )
+            config = {}
+    config.update(settings)
+    save_config(config, config_path)
     return config
 
 

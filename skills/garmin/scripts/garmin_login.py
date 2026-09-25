@@ -2,9 +2,10 @@
 """
 Log in to Garmin Connect once, and save tokens the other scripts resume from.
 
-Run it yourself, in your own terminal. If your account has multi-factor
-authentication, Garmin sends a code by email or text when the login starts,
-and this script asks for it at the prompt.
+Run it yourself, in your own terminal. It asks for your Garmin password, or
+reads it from GARMIN_PASSWORD, hands it to Garmin and never saves it. If your
+account has multi-factor authentication, Garmin sends a code by email or text
+when the login starts, and this script asks for it at the prompt.
 
 It uses garminconnect's own login and writes garminconnect's own token file,
 garmin_tokens.json, at 600 inside a 700 directory. Every other script only
@@ -14,6 +15,7 @@ Usage:
     python garmin_login.py
 """
 
+import getpass
 import os
 import sys
 from pathlib import Path
@@ -38,7 +40,11 @@ from garmin_client import (
     rate_limit_message,
     remove_legacy_tokens,
     start_cooldown,
+    update_config,
 )
+
+# Read instead of prompting when it is set, for a password manager's CLI.
+PASSWORD_ENV = "GARMIN_PASSWORD"
 
 
 def _ensure_private_dir(path: Path) -> None:
@@ -61,8 +67,28 @@ def _prompt_mfa_code() -> str:
     return code
 
 
-def login(config_path: str = DEFAULT_CONFIG_PATH, token_dir: str = DEFAULT_TOKEN_DIR) -> str:
+def _read_password() -> str:
+    """The Garmin password, from GARMIN_PASSWORD or a prompt that does not echo."""
+    password = os.environ.get(PASSWORD_ENV)
+    if not password:
+        try:
+            password = getpass.getpass("Garmin password (used for this login only, not saved): ")
+        except EOFError:
+            password = ""
+    if not password:
+        raise GarminConfigError("No password entered.")
+    return password
+
+
+def login(
+    config_path: str = DEFAULT_CONFIG_PATH,
+    token_dir: str = DEFAULT_TOKEN_DIR,
+    password: str | None = None,
+) -> str:
     """Log in, save the tokens, and prove they load. Returns the account's name.
+
+    The password is used for this one login and never written anywhere. With
+    none given, it comes from GARMIN_PASSWORD or a prompt.
 
     Raises:
         GarminConfigError: the config is unusable, a check failed, or the login
@@ -75,7 +101,12 @@ def login(config_path: str = DEFAULT_CONFIG_PATH, token_dir: str = DEFAULT_TOKEN
 
     config = load_config(config_path)
     email = config["email"]
-    password = config["password"]
+    if "password" in config:
+        # Saved there by an earlier version. It is not used, and it goes.
+        update_config(config_path)
+        print(f"Removed the saved password from {config_path}. It is no longer kept on disk.")
+    if password is None:
+        password = _read_password()
 
     token_path = Path(token_dir)
     _ensure_private_dir(token_path.parent)

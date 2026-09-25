@@ -32,7 +32,7 @@ ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_client.p
 
 ## Settings
 
-`~/.dbhq/garmin/config.json` holds the login details and one preference, `"units"`: `"imperial"` (default, miles) or `"metric"` (km). It changes activity distances only.
+`~/.dbhq/garmin/config.json` holds the account email and one preference, `"units"`: `"imperial"` (default, miles) or `"metric"` (km). It changes activity distances only. No password is stored: the login asks for it.
 
 ## When a script fails
 
@@ -43,7 +43,7 @@ The scripts only resume a saved session. None of them logs in. Match the message
 | `Config file not found` | Ask the user to run `${CLAUDE_SKILL_DIR}/scripts/setup.sh` in their own terminal |
 | `Not authenticated`, `Old token format` or `Could not resume Garmin session` | Ask the user to log in, below |
 | `rate-limiting`, with a time | Wait until that time. Do not log in or retry: every script refuses until then, and another attempt extends the block |
-| `Garmin refused the login` | Wrong email or password. The user reruns `setup.sh` |
+| `Garmin refused the login` | Wrong password: the user logs in again. Wrong email: the user reruns `setup.sh` |
 | `Error: ... failed` | The call failed. Snapshot and rollup wrote nothing. Say it failed, never "No data" |
 
 The login, for the user to run in their own terminal. Do not run it yourself: it needs a terminal, and asks for an MFA code if Garmin sends one.
