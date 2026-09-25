@@ -26,7 +26,7 @@ The query scripts only resume a saved session. They never log in. If one says "N
 ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_login.py
 ```
 
-Do not run it yourself. It needs a terminal and refuses without one, because Garmin may send an MFA code by email or text that the user types at the prompt. If a script says Garmin is rate-limiting, wait: logging in again extends the block.
+Do not run it yourself. It needs a terminal and refuses without one, because Garmin may send an MFA code by email or text that the user types at the prompt. If a script says Garmin is rate-limiting, wait until the time it gives. Every script refuses to call Garmin before then, and logging in again extends the block.
 
 ## On-Demand Queries
 

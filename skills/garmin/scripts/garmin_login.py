@@ -31,9 +31,13 @@ from garmin_client import (
     DEFAULT_TOKEN_DIR,
     TOKEN_FILE,
     GarminConfigError,
+    check_cooldown,
     get_client,
+    is_rate_limit,
     load_config,
+    rate_limit_message,
     remove_legacy_tokens,
+    start_cooldown,
 )
 
 
@@ -64,6 +68,11 @@ def login(config_path: str = DEFAULT_CONFIG_PATH, token_dir: str = DEFAULT_TOKEN
         GarminConfigError: the config is unusable, a check failed, or the login
             was refused. The message says which.
     """
+    # A login while Garmin is rate-limiting this IP extends the block, so the
+    # cooldown is checked before anything else, and one attempt is all a run
+    # gets: garminconnect already tries several login strategies per attempt.
+    check_cooldown()
+
     config = load_config(config_path)
     email = config["email"]
     password = config["password"]
@@ -83,13 +92,15 @@ def login(config_path: str = DEFAULT_CONFIG_PATH, token_dir: str = DEFAULT_TOKEN
         status, state = garmin.login()
         if status == "needs_mfa":
             garmin.resume_login(state, _prompt_mfa_code())
-    except GarminConnectTooManyRequestsError as exc:
-        raise GarminConfigError(
-            f"Garmin is rate-limiting logins from this IP: {exc}\nWait before trying again. Another attempt now extends the block."
-        ) from exc
-    except GarminConnectAuthenticationError as exc:
-        raise GarminConfigError(f"Garmin refused the login: {exc}") from exc
-    except GarminConnectConnectionError as exc:
+    except (
+        GarminConnectTooManyRequestsError,
+        GarminConnectAuthenticationError,
+        GarminConnectConnectionError,
+    ) as exc:
+        if is_rate_limit(exc):
+            raise GarminConfigError(rate_limit_message(start_cooldown(exc))) from exc
+        if isinstance(exc, GarminConnectAuthenticationError):
+            raise GarminConfigError(f"Garmin refused the login: {exc}") from exc
         raise GarminConfigError(f"Could not reach Garmin to log in: {exc}") from exc
 
     try:

@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from garminconnect.exceptions import GarminConnectAuthenticationError, GarminConnectTooManyRequestsError
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
@@ -100,7 +101,11 @@ class TestGetClient:
         _write_current(token_dir)
 
         mock_garmin = MagicMock()
-        mock_garmin.login.side_effect = Exception("Error 429: Too Many Requests")
+        # garminconnect's own wording, which contains neither "429" nor
+        # "too many requests". Only the type says it is a rate limit.
+        mock_garmin.login.side_effect = GarminConnectTooManyRequestsError(
+            "Too many login attempts. Please wait a few minutes before trying again."
+        )
         MockGarmin.return_value = mock_garmin
 
         with pytest.raises(GarminAuthError) as excinfo:
@@ -210,10 +215,36 @@ class TestAuthFailureClassification:
         token_dir = tmp_path / "tokens"
         _write_current(token_dir)
 
-        msg = describe_auth_failure(str(token_dir), Exception("Error 429: Too Many Requests"))
+        exc = GarminConnectTooManyRequestsError(
+            "Too many login attempts. Please wait a few minutes before trying again."
+        )
+        msg = describe_auth_failure(str(token_dir), exc)
 
-        assert "rate-limit" in msg.lower() or "rate limit" in msg.lower()
+        assert "rate-limit" in msg.lower()
+        assert "wait" in msg.lower()
         assert RELOGIN_HINT not in msg
+
+    def test_rate_limit_wrapped_in_an_auth_error_is_still_a_rate_limit(self, tmp_path):
+        """garminconnect raises an auth error whose cause is the 429."""
+        token_dir = tmp_path / "tokens"
+        _write_current(token_dir)
+        try:
+            try:
+                raise GarminConnectTooManyRequestsError("Rate limit exceeded")
+            except GarminConnectTooManyRequestsError as inner:
+                raise GarminConnectAuthenticationError("Failed to retrieve user settings") from inner
+        except GarminConnectAuthenticationError as outer:
+            msg = describe_auth_failure(str(token_dir), outer)
+
+        assert "rate-limit" in msg.lower()
+        assert RELOGIN_HINT not in msg
+
+    def test_the_word_429_alone_is_not_a_rate_limit(self, tmp_path):
+        """Detection is by type. A message that happens to say 429 is surfaced as it is."""
+        token_dir = tmp_path / "tokens"
+        _write_current(token_dir)
+        msg = describe_auth_failure(str(token_dir), Exception("record 429 not found"))
+        assert "record 429 not found" in msg
 
     def test_unknown_error_is_surfaced_verbatim(self, tmp_path):
         token_dir = tmp_path / "tokens"

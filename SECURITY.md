@@ -44,6 +44,9 @@ entirely.
   on the agent
 - Builds a virtualenv at `skills/garmin/.venv`
 - Writes markdown only where you point `--output-dir`
+- After Garmin answers 429, writes `~/.dbhq/garmin/ratelimited_until` (mode
+  **600**): one timestamp, before which no script calls Garmin. It is removed
+  once that time has passed
 - Writes no cache and no log beyond that
 
 ### Third-party code

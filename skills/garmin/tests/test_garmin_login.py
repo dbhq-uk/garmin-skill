@@ -197,7 +197,7 @@ class TestFailures:
             raise GarminConnectTooManyRequestsError("Too many login attempts. Please wait...")
 
         with patch.object(Client, "login", strategy_chain):
-            with pytest.raises(GarminConfigError, match="Wait before trying again"):
+            with pytest.raises(GarminConfigError, match="Do not log in again"):
                 garmin_login.login(str(config_path), str(token_dir))
 
         assert calls == ["test@example.com"]
