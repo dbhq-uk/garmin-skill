@@ -18,16 +18,15 @@ Query Garmin Connect for health metrics, sleep data, activities, and training st
 ${CLAUDE_SKILL_DIR}/scripts/setup.sh
 ```
 
-## Re-Login (Token Refresh)
+## Log In
 
-If authentication fails (expired tokens, rate limits), re-login:
+The query scripts only resume a saved session. They never log in. If one says "Not authenticated" or "Old token format", ask the user to run this once in their own terminal:
 
 ```bash
 ${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/garmin_login.py
 ```
 
-Supports MFA interactively or via argument (`garmin_login.py 123456`).
-When run non-interactively, writes MFA code path to `/tmp/garmin_mfa.txt`.
+Do not run it yourself. It needs a terminal and refuses without one, because Garmin may send an MFA code by email or text that the user types at the prompt. If a script says Garmin is rate-limiting, wait: logging in again extends the block.
 
 ## On-Demand Queries
 

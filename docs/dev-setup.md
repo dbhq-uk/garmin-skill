@@ -24,7 +24,7 @@ cd ~/dbhq-garmin
 
 Any path the skill names uses `${CLAUDE_SKILL_DIR}` (the skill's own directory), which Claude Code substitutes for personal, project and plugin installs alike. So `install.sh` symlinks the **whole skill directory** into `~/.claude/skills/` - `SKILL.md`, `scripts/` and `references/` are all live, and every edit takes effect with no re-run. Codex does not substitute `${CLAUDE_SKILL_DIR}`, so `install-codex.sh` rewrites it to the install path - **re-run `./install-codex.sh` after editing a `SKILL.md`** for Codex.
 
-Both installers build the virtualenv at `skills/garmin/.venv` and then run `scripts/setup.sh`, which asks for your Garmin email and password and does a test login. MFA is prompted for on first login only.
+Both installers build the virtualenv at `skills/garmin/.venv` and then run `scripts/setup.sh`, which asks for your Garmin email and password and logs in with `scripts/garmin_login.py`. If your account has MFA, Garmin sends a code and the login asks for it.
 
 The venv is inside the skill directory rather than somewhere shared, and that is deliberate: `${CLAUDE_SKILL_DIR}/.venv/bin/python` is then the right interpreter under every install shape without a lookup.
 
@@ -37,7 +37,7 @@ From the shell:
 ```bash
 cd ~/dbhq-garmin/skills/garmin
 .venv/bin/python scripts/garmin_client.py   # prints your name from Garmin Connect
-.venv/bin/python -m pytest tests/ -v        # 58 tests, no network
+.venv/bin/python -m pytest tests/ -v        # no network, no account needed
 ```
 
 ## 4. Check the numbers by hand
@@ -55,12 +55,10 @@ After changing a fetch or a formatter, run one real day and compare it against t
 
 ## When authentication starts failing
 
-Tokens last roughly a year, and rate limits look like auth failures.
+Read the message first. "Not authenticated" or "Old token format" means log in again. "rate-limiting" means wait, because another login extends the block.
 
 ```bash
-.venv/bin/python scripts/garmin_login.py           # re-login, MFA supported
-.venv/bin/python scripts/garmin_login.py 123456    # or pass the MFA code
-rm -rf ~/.dbhq/garmin/tokens                            # nuclear option, forces a fresh login
+.venv/bin/python scripts/garmin_login.py    # log in, in your own terminal; asks for an MFA code if Garmin sends one
 ```
 
 ## Where the content lives

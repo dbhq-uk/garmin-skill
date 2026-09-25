@@ -48,32 +48,47 @@ EOF
 chmod 600 ~/.dbhq/garmin/config.json
 ```
 
-### 4. Test authentication
+### 4. Log in
+
+Run this yourself, in a terminal. If your account has multi-factor
+authentication, Garmin sends a code by email or text and the script asks for it.
+
+```bash
+.venv/bin/python scripts/garmin_login.py
+```
+
+It prints your name from Garmin Connect when the login worked. To check the
+saved session again later, without logging in:
 
 ```bash
 .venv/bin/python scripts/garmin_client.py
 ```
-
-This should print your name from Garmin Connect. On first login, you may be prompted for an MFA code.
 
 ## Token Storage
 
-After first successful login, OAuth tokens are cached at `~/.dbhq/garmin/tokens/`. These are valid for approximately one year. If authentication starts failing, delete the tokens directory and re-authenticate:
+The login saves its tokens to `~/.dbhq/garmin/tokens/garmin_tokens.json`, at
+mode 600 in a directory at mode 700. The other scripts only resume from that
+file; none of them logs in. If they report "Not authenticated" or "Old token
+format", run `scripts/garmin_login.py` again.
 
-```bash
-rm -rf ~/.dbhq/garmin/tokens
-.venv/bin/python scripts/garmin_client.py
-```
+Tokens from before `garminconnect` 0.3 (`oauth1_token.json` and
+`oauth2_token.json`) cannot be read any more. The next login deletes them.
 
 ## Troubleshooting
 
 ### "Config file not found"
 Run `scripts/setup.sh` or create `~/.dbhq/garmin/config.json` manually.
 
-### "Authentication failed"
+### "Garmin refused the login"
 1. Check your email/password in `~/.dbhq/garmin/config.json`
 2. Try logging into Garmin Connect in a browser to verify credentials
-3. Delete `~/.dbhq/garmin/tokens/` and try again
+3. Run `scripts/garmin_login.py` again
+
+### "rate-limiting"
+Garmin is blocking logins from your IP for a while. Wait before trying again:
+another attempt extends the block.
 
 ### MFA prompt
-Garmin may require MFA on first login. Enter the code when prompted. Subsequent logins use cached tokens.
+If your account has multi-factor authentication, Garmin sends a code each time
+you log in. Enter it at the prompt. The scripts then resume from the saved
+tokens without asking again.

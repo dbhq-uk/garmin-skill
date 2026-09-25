@@ -1,135 +1,140 @@
 #!/usr/bin/env python3
 """
-Garmin login with MFA support.
+Log in to Garmin Connect once, and save tokens the other scripts resume from.
 
-Uses garth's web SSO login flow with a browser-like User-Agent to
-avoid Cloudflare rate limiting on the default mobile app UA.
+Run it yourself, in your own terminal. If your account has multi-factor
+authentication, Garmin sends a code by email or text when the login starts,
+and this script asks for it at the prompt.
+
+It uses garminconnect's own login and writes garminconnect's own token file,
+garmin_tokens.json, at 600 inside a 700 directory. Every other script only
+resumes from that file and never logs in.
 
 Usage:
-    python garmin_login.py              # Interactive MFA prompt
-    python garmin_login.py 123456       # Pass MFA code as argument
-
-Non-interactive MFA (used by Claude Code):
-    Polls /tmp/garmin_mfa.txt for up to 5 minutes.
+    python garmin_login.py
 """
 
-import json
 import os
 import sys
-import time
 from pathlib import Path
 
-from garth import http as garth_http
-from garth import sso as garth_sso
+from garminconnect import Garmin
+from garminconnect.exceptions import (
+    GarminConnectAuthenticationError,
+    GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+)
 
-
-def _migrate_legacy_settings() -> None:
-    """One-time migration: settings used to live at ~/.garmin."""
-    new_dir = Path(os.path.expanduser("~/.dbhq/garmin"))
-    old_dir = Path(os.path.expanduser("~/.garmin"))
-    if new_dir.exists() or not old_dir.is_dir():
-        return
-    new_dir.parent.mkdir(mode=0o700, exist_ok=True)
-    os.chmod(new_dir.parent, 0o700)
-    old_dir.rename(new_dir)
-    os.chmod(new_dir, 0o700)
-
-
-_migrate_legacy_settings()
-
-CONFIG_PATH = os.path.expanduser("~/.dbhq/garmin/config.json")
-TOKEN_DIR = os.path.expanduser("~/.dbhq/garmin/tokens")
-MFA_FILE = "/tmp/garmin_mfa.txt"
-
-# Use a browser UA to avoid Cloudflare rate-limiting garth's default
-# mobile app User-Agent.
-CHROME_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+sys.path.insert(0, str(Path(__file__).parent))
+from garmin_client import (
+    DEFAULT_CONFIG_PATH,
+    DEFAULT_TOKEN_DIR,
+    TOKEN_FILE,
+    GarminConfigError,
+    get_client,
+    load_config,
+    remove_legacy_tokens,
 )
 
 
-def _get_mfa_code(mfa_code_arg: str | None) -> str:
-    if mfa_code_arg:
-        return mfa_code_arg
+def _ensure_private_dir(path: Path) -> None:
+    """Create a directory at 700, and tighten it to 700 if it already exists.
+
+    mkdir's mode is filtered by the umask and ignored for a directory that is
+    already there, so the chmod is what actually guarantees owner-only.
+    """
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(path, 0o700)
+
+
+def _prompt_mfa_code() -> str:
     try:
-        return input("Enter MFA code: ")
+        code = input("MFA code (sent by Garmin to your email or phone): ").strip()
     except EOFError:
-        pass
-    mfa_path = Path(MFA_FILE)
-    if mfa_path.exists():
-        code = mfa_path.read_text().strip()
-        mfa_path.unlink(missing_ok=True)
-        if code:
-            return code
-    print(f"MFA required. Write the code to {MFA_FILE} (waiting up to 300s)...")
-    deadline = time.time() + 300
-    while time.time() < deadline:
-        if mfa_path.exists():
-            code = mfa_path.read_text().strip()
-            mfa_path.unlink(missing_ok=True)
-            if code:
-                return code
-        time.sleep(1)
-    raise RuntimeError(f"Timed out waiting for MFA code in {MFA_FILE}")
+        code = ""
+    if not code:
+        raise GarminConfigError("No MFA code entered. Run the login again when you have the code.")
+    return code
 
 
-def main():
-    with open(CONFIG_PATH) as f:
-        config = json.load(f)
+def login(config_path: str = DEFAULT_CONFIG_PATH, token_dir: str = DEFAULT_TOKEN_DIR) -> str:
+    """Log in, save the tokens, and prove they load. Returns the account's name.
 
+    Raises:
+        GarminConfigError: the config is unusable, a check failed, or the login
+            was refused. The message says which.
+    """
+    config = load_config(config_path)
     email = config["email"]
     password = config["password"]
 
-    token_path = Path(TOKEN_DIR)
-    token_path.mkdir(parents=True, exist_ok=True)
+    token_path = Path(token_dir)
+    _ensure_private_dir(token_path.parent)
+    _ensure_private_dir(token_path)
 
-    mfa_code_arg = sys.argv[1] if len(sys.argv) > 1 else None
-
-    client = garth_http.Client()
-    client.sess.headers["User-Agent"] = CHROME_UA
+    # garminconnect falls back to $GARMINTOKENS when login() gets no token
+    # store. This script's job is a fresh login, never a resume from some other
+    # tool's tokens, so that fallback is switched off here.
+    os.environ.pop("GARMINTOKENS", None)
 
     print(f"Logging in as {email}...")
+    garmin = Garmin(email, password, return_on_mfa=True)
+    try:
+        status, state = garmin.login()
+        if status == "needs_mfa":
+            garmin.resume_login(state, _prompt_mfa_code())
+    except GarminConnectTooManyRequestsError as exc:
+        raise GarminConfigError(
+            f"Garmin is rate-limiting logins from this IP: {exc}\nWait before trying again. Another attempt now extends the block."
+        ) from exc
+    except GarminConnectAuthenticationError as exc:
+        raise GarminConfigError(f"Garmin refused the login: {exc}") from exc
+    except GarminConnectConnectionError as exc:
+        raise GarminConfigError(f"Could not reach Garmin to log in: {exc}") from exc
 
-    # Retry on 429 rate limits with backoff
-    max_retries = 5
-    for attempt in range(max_retries):
-        try:
-            result = garth_sso.login(email, password, client=client, return_on_mfa=True)
-            break
-        except Exception as e:
-            if "429" in str(e) and attempt < max_retries - 1:
-                wait = 30 * (attempt + 1)
-                print(f"Rate limited, retrying in {wait}s...")
-                time.sleep(wait)
-                client = garth_http.Client()
-                client.sess.headers["User-Agent"] = CHROME_UA
-            else:
-                raise
+    try:
+        garmin.client.dump(str(token_path))
+    except ValueError as exc:
+        # garminconnect refuses a token path with a symlink anywhere in it.
+        raise GarminConfigError(f"Could not save the tokens: {exc}") from exc
 
-    if isinstance(result, tuple) and result[0] == "needs_mfa":
-        print("MFA code sent to your email/phone.")
-        mfa_code = _get_mfa_code(mfa_code_arg)
-        print("Submitting MFA code...")
-        oauth1, oauth2 = garth_sso.resume_login(result[1], mfa_code)
-    else:
-        oauth1, oauth2 = result
+    # The file just written has to be one the other scripts can load. Checked
+    # offline, before anything else happens: garminconnect falls back to a
+    # browser session when Garmin will not issue a mobile token, and that
+    # session cannot be saved, so dump() writes a file with no tokens in it.
+    try:
+        Garmin().client.load(str(token_path))
+    except GarminConnectConnectionError as exc:
+        raise GarminConfigError(
+            f"Logged in, but Garmin did not issue a token that can be saved ({exc}).\n"
+            "Try again later. The other scripts cannot resume from this login."
+        ) from exc
 
-    # Save tokens
-    client = result[1]["client"] if isinstance(result, tuple) else client
-    client.oauth1_token = oauth1
-    client.oauth2_token = oauth2
-    client.dump(str(token_path))
+    for name in remove_legacy_tokens(str(token_path)):
+        print(f"Removed old-format token file {name}")
 
-    # Verify
-    from garminconnect import Garmin
+    # Resume through exactly the path every other script uses.
+    client = get_client(config, token_dir=str(token_path))
+    return client.get_full_name() or email
 
-    garmin = Garmin()
-    garmin.client.load(str(token_path))
-    name = garmin.get_full_name()
+
+def main() -> int:
+    if not sys.stdin.isatty():
+        print(
+            "garmin_login.py needs a terminal: it may ask for an MFA code.\n"
+            "Run it yourself, in your own terminal, not through an agent.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        name = login()
+    except GarminConfigError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     print(f"Authenticated as: {name}")
-    print(f"Tokens saved to {TOKEN_DIR}")
-    print("All garmin scripts should now work without MFA.")
+    print(f"Tokens saved to {Path(DEFAULT_TOKEN_DIR) / TOKEN_FILE}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

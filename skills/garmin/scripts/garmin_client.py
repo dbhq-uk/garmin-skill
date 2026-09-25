@@ -18,7 +18,6 @@ Usage as CLI (test auth):
 import json
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from garminconnect import Garmin
@@ -78,26 +77,42 @@ _SKILL_DIR = Path(__file__).resolve().parent.parent
 RELOGIN_COMMAND = f"  {_SKILL_DIR}/.venv/bin/python {_SKILL_DIR}/scripts/garmin_login.py"
 
 
-def read_refresh_expiry(token_dir: str = DEFAULT_TOKEN_DIR) -> datetime | None:
-    """Read the refresh token's expiry from the cached oauth2 token.
+# garminconnect 0.3.x keeps its session in this one file inside the token
+# directory. It writes the file itself, at 600 inside a 700 directory.
+TOKEN_FILE = "garmin_tokens.json"
 
-    Returns None if the token file is missing, unreadable, or has no expiry --
-    all of which mean "we cannot say when this expires", not "it is valid".
+# What garth wrote before garminconnect 0.3 dropped it. garminconnect cannot
+# read these, and there is no way to convert them: the only fix is a new login.
+LEGACY_TOKEN_FILES = ("oauth1_token.json", "oauth2_token.json")
+
+
+def token_format(token_dir: str = DEFAULT_TOKEN_DIR) -> str:
+    """Say what kind of tokens the directory holds, without calling Garmin.
+
+    Returns:
+        "current" if garminconnect's own token file is there, "legacy" if only
+        the old garth files are, and "missing" if neither is.
     """
-    token_file = Path(token_dir) / "oauth2_token.json"
-    try:
-        with open(token_file) as f:
-            data = json.load(f)
-    except (OSError, ValueError):
-        return None
+    path = Path(token_dir)
+    if (path / TOKEN_FILE).is_file():
+        return "current"
+    if any((path / name).is_file() for name in LEGACY_TOKEN_FILES):
+        return "legacy"
+    return "missing"
 
-    expires_at = data.get("refresh_token_expires_at")
-    if not expires_at:
-        return None
-    try:
-        return datetime.fromtimestamp(expires_at)
-    except (OSError, OverflowError, TypeError, ValueError):
-        return None
+
+def remove_legacy_tokens(token_dir: str = DEFAULT_TOKEN_DIR) -> list[str]:
+    """Delete the old garth token files, which nothing can read any more.
+
+    Returns the names of the files removed.
+    """
+    removed = []
+    for name in LEGACY_TOKEN_FILES:
+        path = Path(token_dir) / name
+        if path.is_file() or path.is_symlink():
+            path.unlink()
+            removed.append(name)
+    return removed
 
 
 def describe_auth_failure(token_dir: str, exc: Exception) -> str:
@@ -112,17 +127,23 @@ def describe_auth_failure(token_dir: str, exc: Exception) -> str:
             "Wait before retrying. Do not re-run login -- that extends the block."
         )
 
-    expiry = read_refresh_expiry(token_dir)
+    fmt = token_format(token_dir)
 
-    if expiry is None:
-        return f"Not authenticated: no usable Garmin tokens found.\nLog in to authenticate:\n{RELOGIN_COMMAND}"
-
-    if expiry < datetime.now():
+    if fmt == "legacy":
         return (
-            f"Garmin tokens expired on {expiry.date().isoformat()}.\nLog in again to refresh them:\n{RELOGIN_COMMAND}"
+            "Old token format: the saved Garmin tokens were written by an earlier version of this skill,\n"
+            "and garminconnect 0.3 cannot read them. They have not expired.\n"
+            "Log in once, in your own terminal, to replace them:\n"
+            f"{RELOGIN_COMMAND}"
         )
 
-    return f"Could not resume Garmin session: {exc}\nLog in again to refresh your tokens:\n{RELOGIN_COMMAND}"
+    if fmt == "missing":
+        return f"Not authenticated: no Garmin tokens found.\nLog in, in your own terminal:\n{RELOGIN_COMMAND}"
+
+    return (
+        f"Could not resume Garmin session: {exc}\n"
+        f"Log in again, in your own terminal, to refresh your tokens:\n{RELOGIN_COMMAND}"
+    )
 
 
 def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> dict:
@@ -169,14 +190,14 @@ def get_client(
     Args:
         config: Loaded config. Retained for signature compatibility with the
             calling scripts; credentials are not used to log in here.
-        token_dir: Directory holding cached garth tokens.
+        token_dir: Directory holding garminconnect's garmin_tokens.json.
 
     Returns:
         Authenticated Garmin client.
 
     Raises:
         GarminAuthError: If the session cannot be resumed. The message names the
-            actual cause (no tokens / expired on <date> / rate limited).
+            actual cause (no tokens / old token format / rate limited).
     """
     token_path = Path(token_dir)
 

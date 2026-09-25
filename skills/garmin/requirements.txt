@@ -1,3 +1,2 @@
 garminconnect>=0.3.15,<0.4
-garth>=0.8.0,<0.9.0
 pytest>=9.1.1
