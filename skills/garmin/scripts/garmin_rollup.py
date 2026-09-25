@@ -22,7 +22,7 @@ from garmin_activities import (
     _format_duration_mins,
     fetch_training,
 )
-from garmin_client import GarminConfigError, get_client, load_config
+from garmin_client import GarminConfigError, GarminFetchError, fetch, get_client, load_config
 from garmin_health import extract_day_summary, fetch_day_data, format_weekly_vitals
 
 
@@ -239,20 +239,21 @@ def main():
     dates = get_week_dates(year, week)
     print(f"Generating rollup for {year}-W{week:02d} ({dates[0]} to {dates[-1]})...")
 
-    # Fetch daily data for each day
-    day_summaries = []
-    for d in dates:
-        data = fetch_day_data(client, d)
-        day_summaries.append(extract_day_summary(d, data))
-
-    # Fetch activities for the week
+    # Fetch everything before writing anything. One failed call and the week
+    # is not known, so nothing is written and an existing rollup stays as it was.
     try:
-        activities = client.get_activities_by_date(dates[0], dates[-1]) or []
-    except Exception:
-        activities = []
+        day_summaries = []
+        for d in dates:
+            data = fetch_day_data(client, d)
+            day_summaries.append(extract_day_summary(d, data))
 
-    # Training status from most recent day
-    training_status, training_readiness = fetch_training(client, dates[-1])
+        activities = fetch(client.get_activities_by_date, dates[0], dates[-1]) or []
+
+        # Training status from most recent day
+        training_status, training_readiness = fetch_training(client, dates[-1])
+    except GarminFetchError as e:
+        print(f"Error: {e}\nNothing written for {year}-W{week:02d}.", file=sys.stderr)
+        sys.exit(1)
 
     # Generate and write
     markdown = generate_weekly_markdown(

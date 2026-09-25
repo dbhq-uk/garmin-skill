@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from garmin_client import GarminConfigError, get_client, load_config
+from garmin_client import GarminConfigError, GarminFetchError, fetch, get_client, load_config
 
 
 def _format_duration_mins(seconds: float | None) -> str:
@@ -150,27 +150,20 @@ def format_training_status(
 
 
 def fetch_activities(client, days: int = 7) -> list[dict]:
-    """Fetch recent activities from Garmin API."""
-    try:
-        end = date.today().isoformat()
-        start = (date.today() - timedelta(days=days)).isoformat()
-        return client.get_activities_by_date(start, end) or []
-    except Exception:
-        return []
+    """Fetch recent activities from Garmin API. Raises GarminFetchError on a failed call."""
+    end = date.today().isoformat()
+    start = (date.today() - timedelta(days=days)).isoformat()
+    return fetch(client.get_activities_by_date, start, end) or []
 
 
 def fetch_training(client, cdate: str) -> tuple[dict | None, dict | None]:
-    """Fetch training status and readiness from Garmin API."""
-    status = None
-    readiness = None
-    try:
-        status = client.get_training_status(cdate)
-    except Exception:
-        pass
-    try:
-        readiness = client.get_training_readiness(cdate)
-    except Exception:
-        pass
+    """Fetch training status and readiness from Garmin API.
+
+    Either can be None when Garmin has nothing. Raises GarminFetchError when a
+    call failed.
+    """
+    status = fetch(client.get_training_status, cdate)
+    readiness = fetch(client.get_training_readiness, cdate)
     return status, readiness
 
 
@@ -191,18 +184,22 @@ def main():
 
     units = config.get("units", "imperial")
 
-    if args.command == "training":
-        cdate = date.today().isoformat()
-        status, readiness = fetch_training(client, cdate)
-        print(format_training_status(status, readiness))
-    else:
-        try:
-            days = int(args.command)
-        except ValueError:
-            print(f"Error: expected a number of days or 'training', got '{args.command}'", file=sys.stderr)
-            sys.exit(1)
-        activities = fetch_activities(client, days)
-        print(format_activities(activities, units))
+    try:
+        if args.command == "training":
+            cdate = date.today().isoformat()
+            status, readiness = fetch_training(client, cdate)
+            print(format_training_status(status, readiness))
+        else:
+            try:
+                days = int(args.command)
+            except ValueError:
+                print(f"Error: expected a number of days or 'training', got '{args.command}'", file=sys.stderr)
+                sys.exit(1)
+            activities = fetch_activities(client, days)
+            print(format_activities(activities, units))
+    except GarminFetchError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

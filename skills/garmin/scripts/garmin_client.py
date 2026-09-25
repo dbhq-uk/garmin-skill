@@ -21,6 +21,11 @@ import sys
 from pathlib import Path
 
 from garminconnect import Garmin
+from garminconnect.exceptions import (
+    GarminConnectAuthenticationError,
+    GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+)
 
 
 def _migrate_legacy_settings() -> None:
@@ -65,6 +70,41 @@ class GarminFetchError(Exception):
     """
 
     pass
+
+
+# garminconnect raises exactly these for a call that did not work: a rejected
+# session, a rate limit, and every other HTTP or network failure (it wraps
+# requests' own errors in GarminConnectConnectionError). Anything else is a bug
+# in this skill, and has to surface as one rather than as "No data".
+FETCH_ERRORS = (
+    GarminConnectAuthenticationError,
+    GarminConnectTooManyRequestsError,
+    GarminConnectConnectionError,
+)
+
+# get_stats() raises this when Garmin answered successfully with an empty body.
+# That is Garmin having nothing for the day, not a failed call, so it reads as
+# None like every other empty day. test_garmin_api_contract.py pins the wording.
+EMPTY_RESPONSE_MESSAGE = "No data received from server"
+
+
+def fetch(fn, *args, **kwargs):
+    """Call one Garmin API method, keeping "no data" and "failed" apart.
+
+    Returns whatever Garmin returned, None included: None means Garmin has
+    nothing, and the caller renders "No data".
+
+    Raises:
+        GarminFetchError: the call itself failed. A caller that writes a file
+            must abort rather than write, and a query must say the call failed.
+    """
+    try:
+        return fn(*args, **kwargs)
+    except FETCH_ERRORS as exc:
+        if type(exc) is GarminConnectConnectionError and str(exc) == EMPTY_RESPONSE_MESSAGE:
+            return None
+        name = getattr(fn, "__name__", "Garmin call")
+        raise GarminFetchError(f"{name} failed: {exc}") from exc
 
 
 # Derived from this file's own location rather than hardcoded. The skill can be

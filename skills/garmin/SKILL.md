@@ -146,6 +146,7 @@ Claude runs the relevant on-demand query and returns formatted results.
 - **Auth expired:** Auto-refreshes using stored credentials
 - **Wrong credentials:** Clear error, suggests re-running setup.sh
 - **No data for date:** Sections show "No data" rather than failing
+- **A call failed:** The script prints `Error: ...` and exits 1. Snapshot and rollup write nothing, so an archived file is left as it was. Do not report a failed call as "No data"
 - **Garmin service down:** 30s timeout with clear error
 - **MFA required:** Interactive prompt (first login only)
 
