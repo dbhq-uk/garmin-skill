@@ -1,10 +1,13 @@
 """Tests for garmin_snapshot.py - daily markdown file generation."""
 
 import sys
+from datetime import date
 from pathlib import Path
+from unittest.mock import MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
+import garmin_snapshot
 from garmin_snapshot import generate_daily_markdown, write_snapshot
 
 # Reuse mock data structures
@@ -136,3 +139,44 @@ class TestWriteSnapshot:
         existing.write_text("old content")
         write_snapshot("2026-02-22", "new content", output_dir=str(tmp_path))
         assert existing.read_text() == "new content"
+
+
+class TestActivitiesForThePastDate:
+    """A snapshot of any date holds that date's activities, however long ago it was."""
+
+    ACTIVITY = {
+        "activityName": "Morning Run",
+        "startTimeLocal": "2026-09-01 07:15:00",
+        "duration": 1800.0,
+        "distance": 5000.0,
+    }
+
+    def _client(self):
+        """A client whose activity search honours the date range it is given, as Garmin's does."""
+        client = MagicMock()
+        for name in ["get_stats", "get_hrv_data", "get_body_battery", "get_stress_data", "get_sleep_data"]:
+            getattr(client, name).return_value = None
+        client.get_training_status.return_value = None
+        client.get_training_readiness.return_value = None
+
+        def activities_by_date(start, end=None):
+            day = date.fromisoformat(self.ACTIVITY["startTimeLocal"][:10])
+            in_range = date.fromisoformat(start) <= day <= date.fromisoformat(end or start)
+            return [self.ACTIVITY] if in_range else []
+
+        client.get_activities_by_date.side_effect = activities_by_date
+        return client
+
+    def test_a_backfilled_date_includes_its_activity(self, tmp_path, monkeypatch):
+        client = self._client()
+        monkeypatch.setattr(garmin_snapshot, "load_config", lambda: {"email": "test@example.com", "units": "metric"})
+        monkeypatch.setattr(garmin_snapshot, "get_client", lambda _config: client)
+        monkeypatch.setattr(sys, "argv", ["garmin_snapshot.py", "--output-dir", str(tmp_path), "2026-09-01"])
+
+        garmin_snapshot.main()
+
+        written = (tmp_path / "2026-09-01.md").read_text()
+        assert "Morning Run" in written
+        assert "No activities found" not in written
+        # The query names the date asked for, so it cannot depend on today's date.
+        client.get_activities_by_date.assert_called_once_with("2026-09-01", "2026-09-01")

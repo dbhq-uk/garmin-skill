@@ -156,6 +156,17 @@ def fetch_activities(client, days: int = 7) -> list[dict]:
     return fetch(client.get_activities_by_date, start, end) or []
 
 
+def fetch_activities_on(client, cdate: str) -> list[dict]:
+    """Fetch the activities that started on one date. Raises GarminFetchError on a failed call.
+
+    Asks Garmin for that date alone, so the answer does not depend on today's
+    date. A window counted back from today holds nothing for a date before
+    yesterday, and a backfilled archive would then lose every activity.
+    """
+    activities = fetch(client.get_activities_by_date, cdate, cdate) or []
+    return [a for a in activities if str(a.get("startTimeLocal") or "").startswith(cdate)]
+
+
 def fetch_training(client, cdate: str) -> tuple[dict | None, dict | None]:
     """Fetch training status and readiness from Garmin API.
 

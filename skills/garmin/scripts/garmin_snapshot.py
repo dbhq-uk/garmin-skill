@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from garmin_activities import (
-    fetch_activities,
+    fetch_activities_on,
     fetch_training,
     format_activities,
     format_training_status,
@@ -143,13 +143,11 @@ def main():
     try:
         health_data = fetch_day_data(client, cdate)
         sleep_data = fetch_sleep(client, cdate)
-        activities_data = fetch_activities(client, days=1)
+        activities = fetch_activities_on(client, cdate)
         training_status, training_readiness = fetch_training(client, cdate)
     except GarminFetchError as e:
         print(f"Error: {e}\nNothing written for {cdate}.", file=sys.stderr)
         sys.exit(1)
-    # Filter activities to just this date
-    activities = [a for a in activities_data if a.get("startTimeLocal", "").startswith(cdate)]
 
     # Generate and write
     markdown = generate_daily_markdown(
