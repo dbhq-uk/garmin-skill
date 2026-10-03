@@ -1,6 +1,6 @@
 ---
 name: garmin
-description: Use for Garmin health and fitness data - body battery, sleep, VO2 max, training load, heart rate, HRV, stress, activities. Trigger on phrases like "garmin", "body battery", "sleep score", "vo2 max", "training load", "fitness data", "pull garmin", "garmin snapshot".
+description: Use for Garmin health and fitness data - body battery, sleep, VO2 max, training load, heart rate, HRV, stress, activities. Also when the user says "garmin".
 ---
 
 # Garmin Health & Fitness
